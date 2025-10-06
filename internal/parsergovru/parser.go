@@ -34,6 +34,7 @@ func (p *Parser) ParseAllPages(baseURL string) ([]models.Tender, error) {
 		url := urlgen.ReplaceURLParam(urlgen.ReplaceURLParam(baseURL, "pageNumber", strconv.Itoa(page)), "recordsPerPage", "_"+strconv.Itoa(quantityCards))
 
 		fmt.Printf("Парсинг страницы %d...\n", page)
+		fmt.Println(url)
 
 		tenders, totalCards, err := p.ParsePage(url)
 		if err != nil {
@@ -124,11 +125,21 @@ func (p *Parser) parseTenderCard(s *goquery.Selection) models.Tender {
 	// Цена
 	tender.Price = strings.TrimSpace(s.Find(".price-block__value").Text())
 
-	// Дата
-	tender.Date = strings.TrimSpace(s.Find(".data-block__value").Text())
+	dateBlocks := s.Find(".data-block .row .col-6")
+	dateBlocks.Each(func(i int, dateBlock *goquery.Selection) {
+		title := strings.TrimSpace(dateBlock.Find(".data-block__title").Text())
+		value := strings.TrimSpace(dateBlock.Find(".data-block__value").Text())
 
-	// Статус
-	tender.Status = strings.TrimSpace(s.Find(".registry-entry__header-mid__title").Text())
+		if title == "Размещено" {
+			tender.PublishDate = value
+		}
+	})
+
+	// Дата окончания подачи заявок (находится отдельно)
+	applicationEnd := s.Find(".data-block__title:contains('Окончание подачи заявок') + .data-block__value")
+	if applicationEnd.Length() > 0 {
+		tender.EndDate = strings.TrimSpace(applicationEnd.Text())
+	}
 
 	return tender
 }
