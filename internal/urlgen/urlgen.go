@@ -2,6 +2,7 @@ package urlgen
 
 import (
 	"net/url"
+	"strings"
 )
 
 type URLEncoder struct {
@@ -29,8 +30,8 @@ func (e *URLEncoder) AddParams(params map[string]string) *URLEncoder {
 }
 
 func (e *URLEncoder) AddArrayParam(key string, values []string) *URLEncoder {
-	for _, value := range values {
-		e.params.Add(key, value)
+	if len(values) > 0 {
+		e.params.Add(key, strings.Join(values, ","))
 	}
 	return e
 }

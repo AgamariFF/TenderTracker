@@ -1,34 +1,37 @@
 package main
 
 import (
-	"fmt"
-	"tendertracker/internal/excel"
-	"tendertracker/internal/parsergovru"
-	"tendertracker/internal/urlgen"
+	"os"
+	"regexp"
+	"strings"
+	"tendertracker/internal/handlers"
+	"tendertracker/internal/logger"
 )
 
 func main() {
-	encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
+	logger.InitLogger("info")
+	defer logger.Close()
 
-	url := encoder.
-		AddParam("searchString", "вентиляции легких").
-		AddParam("morphology", "on").
-		AddParam("search-filter", "Дате размещения").
-		AddParam("fz44", "on").
-		AddParam("fz223", "on").
-		AddParam("ppRf615", "on").
-		AddArrayParam("customerPlace", []string{urlgen.SZFO}).
-		// AddArrayParam("delKladrIds", []string{"OKER36", "OKER33"}).
-		AddParam("gws", "Выберите тип закупки").
-		// AddParam("publishDateFrom", "01.10.2025").
-		// AddParam("applSubmissionCloseDateTo", "02.10.2025").
-		AddParam("af", "on").
-		Build()
-
-	tenders, err := parsergovru.NewParser().ParseAllPages(url)
+	re, err := loadFilterPatterns("filter_patterns_vent.txt")
 	if err != nil {
-		fmt.Print(err)
+		logger.SugaredLogger.Errorf(err.Error())
 	}
 
-	excel.ToExcel(&tenders)
+	router := handlers.SetupRouter(re)
+
+	if err := router.Run(":8081"); err != nil {
+		logger.SugaredLogger.Errorf(err.Error())
+	}
+
+}
+
+func loadFilterPatterns(filename string) (*regexp.Regexp, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	pattern := strings.TrimSpace(string(data))
+
+	return regexp.MustCompile(pattern), nil
 }

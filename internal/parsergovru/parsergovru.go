@@ -3,6 +3,7 @@ package parsergovru
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -17,6 +18,36 @@ type Parser struct {
 	client *http.Client
 }
 
+func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) []models.Tender {
+	switch name {
+	case "vent":
+		encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
+
+		url := encoder.
+			AddParam("searchString", "вентиляции").
+			AddParam("morphology", "on").
+			AddParam("search-filter", "Дате размещения").
+			AddParam("fz44", "on").
+			AddParam("fz223", "on").
+			AddParam("ppRf615", "on").
+			AddArrayParam("customerPlace", config.VentCustomerPlace).
+			AddArrayParam("delKladrIds", config.VentDelKladrIds).
+			AddParam("gws", "Выберите тип закупки").
+			// AddParam("publishDateFrom", "01.10.2025").
+			// AddParam("applSubmissionCloseDateTo", "02.10.2025").
+			AddParam("af", "on").
+			Build()
+
+		tenders, err := NewParser().ParseAllPages(url, re)
+		if err != nil {
+			fmt.Println(err)
+		}
+		return tenders
+	}
+
+	return nil
+}
+
 func NewParser() *Parser {
 	return &Parser{
 		client: &http.Client{
@@ -25,7 +56,7 @@ func NewParser() *Parser {
 	}
 }
 
-func (p *Parser) ParseAllPages(baseURL string) ([]models.Tender, error) {
+func (p *Parser) ParseAllPages(baseURL string, re *regexp.Regexp) ([]models.Tender, error) {
 	var allTenders []models.Tender
 	quantityCards := 500
 	page := 1
@@ -36,7 +67,7 @@ func (p *Parser) ParseAllPages(baseURL string) ([]models.Tender, error) {
 		fmt.Printf("Парсинг страницы %d...\n", page)
 		fmt.Println(url)
 
-		tenders, totalCards, err := p.ParsePage(url)
+		tenders, totalCards, err := p.ParsePage(url, re)
 		if err != nil {
 			return nil, fmt.Errorf("ошибка на странице %d: %w", page, err)
 		}
@@ -64,7 +95,7 @@ func (p *Parser) ParseAllPages(baseURL string) ([]models.Tender, error) {
 	return allTenders, nil
 }
 
-func (p *Parser) ParsePage(url string) ([]models.Tender, int, error) {
+func (p *Parser) ParsePage(url string, re *regexp.Regexp) ([]models.Tender, int, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, 0, fmt.Errorf("ошибка создания запроса: %w", err)
@@ -93,7 +124,7 @@ func (p *Parser) ParsePage(url string) ([]models.Tender, int, error) {
 	totalCards := doc.Find(".search-registry-entry-block").Length()
 
 	doc.Find(".search-registry-entry-block").Each(func(i int, s *goquery.Selection) {
-		tender := p.parseTenderCard(s)
+		tender := p.parseTenderCard(s, re)
 		if tender.Title != "" {
 			tenders = append(tenders, tender)
 		}
@@ -102,12 +133,18 @@ func (p *Parser) ParsePage(url string) ([]models.Tender, int, error) {
 	return tenders, totalCards, nil
 }
 
-// parseTenderCard парсит отдельную карточку закупки
-func (p *Parser) parseTenderCard(s *goquery.Selection) models.Tender {
+func (p *Parser) parseTenderCard(s *goquery.Selection, re *regexp.Regexp) models.Tender {
 	var tender models.Tender
 
+	// Название
+	tender.Title = strings.TrimSpace(s.Find(".registry-entry__body-value").Text())
+
+	if re.MatchString(strings.ToLower(tender.Title)) {
+		return models.Tender{}
+	}
+
 	// Ссылка
-	link, exists := s.Find(".registry-entry__body-value a").Attr("href")
+	link, exists := s.Find(".registry-entry__header-mid__number a").Attr("href")
 	if exists {
 		if !strings.HasPrefix(link, "http") {
 			tender.Link = "https://zakupki.gov.ru" + link
@@ -116,14 +153,16 @@ func (p *Parser) parseTenderCard(s *goquery.Selection) models.Tender {
 		}
 	}
 
-	// Название (может быть в другом селекторе)
-	tender.Title = strings.TrimSpace(s.Find(".registry-entry__body-title").Text())
-
 	// Заказчик
 	tender.Customer = strings.TrimSpace(s.Find(".registry-entry__body-href").Text())
 
-	// Цена
-	tender.Price = strings.TrimSpace(s.Find(".price-block__value").Text())
+	// Цена - ищем ТОЛЬКО в пределах текущей карточки
+	priceElem := s.Find(".price-block__value")
+	if priceElem.Length() > 0 {
+		tender.Price = strings.TrimSpace(priceElem.First().Text())
+	} else {
+		tender.Price = "Не указана" // или пустая строка
+	}
 
 	dateBlocks := s.Find(".data-block .row .col-6")
 	dateBlocks.Each(func(i int, dateBlock *goquery.Selection) {
