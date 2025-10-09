@@ -103,3 +103,11 @@ function downloadFile() {
 document.addEventListener('DOMContentLoaded', function() {
     // Уже есть кнопки в HTML, поэтому ничего дополнительного не нужно
 });
+
+
+// Функция показа помощи
+function showHelp() {
+    const helpModal = new bootstrap.Modal(document.getElementById('helpModal'));
+    helpModal.show();
+}
+
