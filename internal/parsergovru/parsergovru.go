@@ -43,6 +43,9 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) []models.
 			fmt.Println(err)
 		}
 		return tenders
+
+	case "doors":
+
 	}
 
 	return nil
