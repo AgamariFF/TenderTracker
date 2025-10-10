@@ -114,4 +114,7 @@ function showHelp() {
 function changePort(port, path = '') {
     const host = window.location.hostname;
     window.location.href = `//${host}:${port}/${path}`;
+    if (path == '/') {
+        window.location.href = `//${host}:${port}/`
+    }
 }
