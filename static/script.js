@@ -25,6 +25,7 @@ document.getElementById('searchForm').addEventListener('submit', function(e) {
     // Добавляем булевы значения для переключателей
     formData.set('search_vent', document.getElementById('searchVent').checked);
     formData.set('search_doors', document.getElementById('searchDoors').checked);
+    formData.set('search_build', document.getElementById('searchBuild').checked);
 
     console.log('FormData содержимое:');
     for (let [key, value] of formData.entries()) {
@@ -70,23 +71,72 @@ document.getElementById('searchForm').addEventListener('submit', function(e) {
 
 function showSuccess(data) {
     document.getElementById('resultSection').style.display = 'block';
+
+    const searchVent = document.getElementById('searchVent').checked
+    const searchDoors = document.getElementById('searchDoors').checked
+    const searchBuild = document.getElementById('searchBuild').checked
     
     const statsElement = document.getElementById('searchStats');
     
-    if (data.stats && data.stats.totalFound !== undefined) {
+    if (data.stats !== undefined) {
         statsElement.style.display = 'block';
-        statsElement.innerHTML = `
-            <div class="row">
+        
+        let statsHTML = '<div class="row">';
+
+        if (data.stats.totalFound !== undefined) {
+            statsHTML += `
                 <div class="col-md-4">
                     <div class="card bg-light">
                         <div class="card-body text-center">
-                            <h4 class="text-primary">${data.stats.totalFound}</h4>
-                            <small class="text-muted">Найдено закупок</small>
+                            <h4 class="text-success">${data.stats.totalFound}</h4>
+                            <small class="text-muted">Всего найдено закупок</small>
                         </div>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
+
+        if (searchVent) {
+            statsHTML += `
+                <div class="col-md-4">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h4 class="text-primary">${data.stats.ventFound}</h4>
+                            <small class="text-muted">Найдено закупок по вентиляции</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        if (searchDoors) {
+            statsHTML += `
+                <div class="col-md-4">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h4 class="text-primary">${data.stats.doorsFound}</h4>
+                            <small class="text-muted">Найдено закупок по монтажу дверей</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        if (searchBuild) {
+            statsHTML += `
+                <div class="col-md-4">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h4 class="text-primary">${data.stats.buildFound}</h4>
+                            <small class="text-muted">Найдено закупок по монтажу дверей</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        statsHTML += '</div>';
+        statsElement.innerHTML = statsHTML;
     } else {
         statsElement.style.display = 'none';
         statsElement.innerHTML = '';

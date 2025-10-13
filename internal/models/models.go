@@ -7,6 +7,7 @@ import (
 type AllTenders struct {
 	Vent  []Tender
 	Doors []Tender
+	Build []Tender
 }
 
 type Tender struct {
@@ -21,6 +22,7 @@ type Tender struct {
 type Config struct {
 	SearchVent        bool     `form:"search_vent"`
 	SearchDoors       bool     `form:"search_doors"`
+	SearchBuild       bool     `form:"search_build"`
 	VentCustomerPlace []string `form:"vent_customer_place"`
 	VentDelKladrIds   []string `form:"vent_del_kladr_ids"`
 }
@@ -34,6 +36,12 @@ func (c *Config) Bind(ctx *gin.Context) error {
 	}
 
 	if ctx.PostForm("search_doors") == "on" || ctx.PostForm("search_doors") == "true" {
+		c.SearchDoors = true
+	} else {
+		c.SearchDoors = false
+	}
+
+	if ctx.PostForm("search_build") == "on" || ctx.PostForm("search_build") == "true" {
 		c.SearchDoors = true
 	} else {
 		c.SearchDoors = false

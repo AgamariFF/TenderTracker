@@ -6,8 +6,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"tendertracker/internal/logger"
 	"tendertracker/internal/models"
 	"tendertracker/internal/urlgen"
 
@@ -38,7 +40,7 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) []models.
 			AddParam("af", "on").
 			Build()
 
-		tenders, err := NewParser().ParseAllPages(url, re)
+		tenders, err := NewParser().ParseAllPages(name, url, re)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -62,11 +64,65 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) []models.
 			AddParam("af", "on").
 			Build()
 
-		tenders, err := NewParser().ParseAllPages(url, re)
+		tenders, err := NewParser().ParseAllPages(name, url, re)
 		if err != nil {
 			fmt.Println(err)
 		}
 		return tenders
+
+	case "build":
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		var allErrors []string
+
+		tenders0 := make([]models.Tender, 0)
+		tenders1 := make([]models.Tender, 0)
+		tenders2 := make([]models.Tender, 0)
+
+		parseInGoroutine := func(searchString string, suffix string, result *[]models.Tender) {
+			defer wg.Done()
+
+			encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
+			url := encoder.
+				AddParam("searchString", searchString).
+				AddParam("morphology", "on").
+				AddParam("search-filter", "Дате размещения").
+				AddParam("fz44", "on").
+				AddParam("fz223", "on").
+				AddParam("ppRf615", "on").
+				AddArrayParam("customerPlace", config.VentCustomerPlace).
+				AddArrayParam("delKladrIds", config.VentDelKladrIds).
+				AddParam("gws", "Выберите тип закупки").
+				AddParam("af", "on").
+				Build()
+
+			tenders, err := NewParser().ParseAllPages(name+suffix, url, re)
+			if err != nil {
+				mu.Lock()
+				allErrors = append(allErrors, fmt.Sprintf("%s: %v", searchString, err))
+				mu.Unlock()
+				return
+			}
+
+			mu.Lock()
+			*result = tenders
+			mu.Unlock()
+		}
+
+		wg.Add(3)
+		go parseInGoroutine("реконструкция здания", "0", &tenders0)
+		go parseInGoroutine("строительство здания", "1", &tenders1)
+		go parseInGoroutine("капитальный ремонт здания", "2", &tenders2)
+
+		wg.Wait()
+
+		if len(allErrors) > 0 {
+			logger.SugaredLogger.Warnf("Ошибки при поиске строительства: %v", allErrors)
+		}
+
+		tenders := mergeTendersWithoutDuplicates(tenders0, tenders1, tenders2)
+		return tenders
+
 	}
 
 	return nil
@@ -75,39 +131,39 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) []models.
 func NewParser() *Parser {
 	return &Parser{
 		client: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 120 * time.Second,
 		},
 	}
 }
 
-func (p *Parser) ParseAllPages(baseURL string, re *regexp.Regexp) ([]models.Tender, error) {
+func (p *Parser) ParseAllPages(name, baseURL string, re *regexp.Regexp) ([]models.Tender, error) {
 	var allTenders []models.Tender
-	quantityCards := 500
+	quantityCards := 100
 	page := 1
 
 	for {
 		url := urlgen.ReplaceURLParam(urlgen.ReplaceURLParam(baseURL, "pageNumber", strconv.Itoa(page)), "recordsPerPage", "_"+strconv.Itoa(quantityCards))
 
-		fmt.Printf("Парсинг страницы %d...\n", page)
+		fmt.Printf("%s: Парсинг страницы %d...\n", name, page)
 		fmt.Println(url)
 
 		tenders, totalCards, err := p.ParsePage(url, re)
 		if err != nil {
-			return nil, fmt.Errorf("ошибка на странице %d: %w", page, err)
+			return nil, fmt.Errorf("%s: ошибка на странице %d: %w", name, page, err)
 		}
 
 		allTenders = append(allTenders, tenders...)
 
-		fmt.Printf("Страница %d: найдено %d карточек, распарсено %d тендеров\n",
-			page, totalCards, len(tenders))
+		fmt.Printf("%s: Страница %d: найдено %d карточек, распарсено %d тендеров\n",
+			name, page, totalCards, len(tenders))
 
 		if totalCards < quantityCards {
-			fmt.Printf("Последняя страница достигнута. Всего страниц: %d\n", page)
+			fmt.Printf("%s: Последняя страница достигнута. Всего страниц: %d\n", name, page)
 			break
 		}
 
 		if totalCards == 0 {
-			fmt.Printf("На странице %d не найдено карточек, завершаем\n", page)
+			fmt.Printf("%s: На странице %d не найдено карточек, завершаем\n", name, page)
 			break
 		}
 
@@ -115,7 +171,7 @@ func (p *Parser) ParseAllPages(baseURL string, re *regexp.Regexp) ([]models.Tend
 		time.Sleep(1 * time.Second)
 	}
 
-	fmt.Printf("Всего собрано тендеров: %d\n", len(allTenders))
+	fmt.Printf("%s: Всего собрано тендеров: %d\n", name, len(allTenders))
 	return allTenders, nil
 }
 
@@ -205,4 +261,20 @@ func (p *Parser) parseTenderCard(s *goquery.Selection, re *regexp.Regexp) models
 	}
 
 	return tender
+}
+
+func mergeTendersWithoutDuplicates(tenderSlices ...[]models.Tender) []models.Tender {
+	seen := make(map[string]bool)
+	var result []models.Tender
+
+	for _, slice := range tenderSlices {
+		for _, tender := range slice {
+			if tender.Title != "" && !seen[tender.Title] {
+				seen[tender.Title] = true
+				result = append(result, tender)
+			}
+		}
+	}
+
+	return result
 }

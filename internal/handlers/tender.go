@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"regexp"
+	"sync"
 
 	"tendertracker/internal/excel"
 	"tendertracker/internal/logger"
@@ -33,16 +34,51 @@ func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 
 		logger.SugaredLogger.Infof("config: %+v", config)
 
-		if config.SearchVent {
-			tenders := parsergovru.ParseGovRu("vent", config, re)
-			allTenders.Vent = tenders
-			stats["totalFound"] = len(tenders)
-		}
+		if config.SearchVent || config.SearchDoors {
+			var wg sync.WaitGroup
+			var mu sync.Mutex
 
-		if config.SearchDoors {
-			tenders := parsergovru.ParseGovRu("doors", config, re)
-			allTenders.Doors = tenders
-			stats["totalFound"] += len(tenders)
+			if config.SearchVent {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					tenders := parsergovru.ParseGovRu("vent", config, re)
+					allTenders.Vent = tenders
+					stats["ventFound"] = len(tenders)
+					mu.Lock()
+					stats["totalFound"] += stats["ventFound"]
+					mu.Unlock()
+				}()
+			}
+
+			if config.SearchDoors {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					tenders := parsergovru.ParseGovRu("doors", config, re)
+					allTenders.Doors = tenders
+					stats["doorsFound"] = len(tenders)
+					mu.Lock()
+					stats["totalFound"] += stats["doorsFound"]
+					mu.Unlock()
+				}()
+			}
+
+			if config.SearchBuild {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					tenders := parsergovru.ParseGovRu("build", config, re)
+					allTenders.Build = tenders
+					stats["buildFound"] = len(tenders)
+					mu.Lock()
+					stats["totalFound"] += stats["doorsFound"]
+					mu.Unlock()
+				}()
+			}
+
+			wg.Wait()
+
 		}
 
 		if len(allTenders.Doors)+len(allTenders.Vent) == 0 {

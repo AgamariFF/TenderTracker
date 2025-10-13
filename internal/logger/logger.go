@@ -55,5 +55,5 @@ func InitLogger(level string) {
 	logger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zap.ErrorLevel))
 	SugaredLogger = logger.Sugar()
 
-	SugaredLogger.Infof("🚀 Логгер запущен | Уровень: %s", level)
+	SugaredLogger.Infof("Логгер запущен | Уровень: %s", level)
 }
