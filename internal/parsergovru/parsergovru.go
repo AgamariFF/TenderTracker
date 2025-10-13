@@ -20,7 +20,7 @@ type Parser struct {
 	client *http.Client
 }
 
-func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) []models.Tender {
+func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models.Tender, error) {
 	switch name {
 	case "vent":
 		encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
@@ -42,9 +42,9 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) []models.
 
 		tenders, err := NewParser().ParseAllPages(name, url, re)
 		if err != nil {
-			fmt.Println(err)
+			return tenders, err
 		}
-		return tenders
+		return tenders, nil
 
 	case "doors":
 		encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
@@ -66,20 +66,18 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) []models.
 
 		tenders, err := NewParser().ParseAllPages(name, url, re)
 		if err != nil {
-			fmt.Println(err)
+			return tenders, err
 		}
-		return tenders
+		return tenders, nil
 
 	case "build":
 		var wg sync.WaitGroup
 		var mu sync.Mutex
+
 		var allErrors []string
+		var allTenders []models.Tender
 
-		tenders0 := make([]models.Tender, 0)
-		tenders1 := make([]models.Tender, 0)
-		tenders2 := make([]models.Tender, 0)
-
-		parseInGoroutine := func(searchString string, suffix string, result *[]models.Tender) {
+		parseInGoroutine := func(searchString string, suffix string) {
 			defer wg.Done()
 
 			encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
@@ -93,52 +91,51 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) []models.
 				AddArrayParam("customerPlace", config.VentCustomerPlace).
 				AddArrayParam("delKladrIds", config.VentDelKladrIds).
 				AddParam("gws", "Выберите тип закупки").
+				// AddParam("publishDateFrom", "01.10.2025").
+				// AddParam("applSubmissionCloseDateTo", "02.10.2025").
 				AddParam("af", "on").
 				Build()
 
 			tenders, err := NewParser().ParseAllPages(name+suffix, url, re)
-			if err != nil {
-				mu.Lock()
-				allErrors = append(allErrors, fmt.Sprintf("%s: %v", searchString, err))
-				mu.Unlock()
-				return
-			}
 
 			mu.Lock()
-			*result = tenders
+			if err != nil {
+				allErrors = append(allErrors, fmt.Sprintf("%s: %v", searchString, err))
+			} else {
+				allTenders = append(allTenders, tenders...)
+			}
 			mu.Unlock()
 		}
 
 		wg.Add(3)
-		go parseInGoroutine("реконструкция здания", "0", &tenders0)
-		go parseInGoroutine("строительство здания", "1", &tenders1)
-		go parseInGoroutine("капитальный ремонт здания", "2", &tenders2)
-
+		go parseInGoroutine("реконструкция здания", "0")
+		go parseInGoroutine("строительство здания", "1")
+		go parseInGoroutine("капитальный ремонт здания", "2")
 		wg.Wait()
 
 		if len(allErrors) > 0 {
-			logger.SugaredLogger.Warnf("Ошибки при поиске строительства: %v", allErrors)
+			return allTenders, fmt.Errorf("build search failed: %s", strings.Join(allErrors, "; "))
 		}
 
-		tenders := mergeTendersWithoutDuplicates(tenders0, tenders1, tenders2)
-		return tenders
+		tenders := mergeTendersWithoutDuplicates(allTenders)
+		return tenders, nil
 
 	}
 
-	return nil
+	return nil, fmt.Errorf("Incorrect parametrs")
 }
 
 func NewParser() *Parser {
 	return &Parser{
 		client: &http.Client{
-			Timeout: 120 * time.Second,
+			Timeout: 45 * time.Second,
 		},
 	}
 }
 
 func (p *Parser) ParseAllPages(name, baseURL string, re *regexp.Regexp) ([]models.Tender, error) {
 	var allTenders []models.Tender
-	quantityCards := 100
+	quantityCards := 50
 	page := 1
 
 	for {
@@ -176,17 +173,35 @@ func (p *Parser) ParseAllPages(name, baseURL string, re *regexp.Regexp) ([]model
 }
 
 func (p *Parser) ParsePage(url string, re *regexp.Regexp) ([]models.Tender, int, error) {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, 0, fmt.Errorf("ошибка создания запроса: %w", err)
+	var resp *http.Response
+	var err error
+
+	for attempt := 1; attempt <= 3; attempt++ {
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, 0, fmt.Errorf("ошибка создания запроса: %w", err)
+		}
+
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+		req.Header.Set("Accept-Language", "ru-RU,ru;q=0.9,en;q=0.8")
+
+		resp, err = p.client.Do(req)
+		if err == nil {
+			break
+		}
+
+		if attempt < 3 {
+			waitTime := time.Duration(attempt*attempt) * 2 * time.Second
+			logger.SugaredLogger.Warnf("Попытка %d не удалась, повтор через %v: %v", attempt, waitTime, err)
+			time.Sleep(waitTime)
+			continue
+		}
+		return nil, 0, fmt.Errorf("ошибка выполнения запроса после 3 попыток: %w", err)
 	}
 
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-
-	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, 0, fmt.Errorf("ошибка выполнения запроса: %w", err)
+		return nil, 0, fmt.Errorf("ошибка выполнения запроса после 3 попыток: %w", err)
 	}
 	defer resp.Body.Close()
 

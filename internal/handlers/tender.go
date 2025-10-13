@@ -42,7 +42,14 @@ func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					tenders := parsergovru.ParseGovRu("vent", config, re)
+					tenders, err := parsergovru.ParseGovRu("vent", config, re)
+					if err != nil {
+						c.JSON(http.StatusInternalServerError, gin.H{
+							"error":   "Failed to create Excel file",
+							"details": err.Error(),
+						})
+						return
+					}
 					allTenders.Vent = tenders
 					stats["ventFound"] = len(tenders)
 					mu.Lock()
@@ -55,7 +62,14 @@ func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					tenders := parsergovru.ParseGovRu("doors", config, re)
+					tenders, err := parsergovru.ParseGovRu("doors", config, re)
+					if err != nil {
+						c.JSON(http.StatusInternalServerError, gin.H{
+							"error":   "Failed to create Excel file",
+							"details": err.Error(),
+						})
+						return
+					}
 					allTenders.Doors = tenders
 					stats["doorsFound"] = len(tenders)
 					mu.Lock()
@@ -68,7 +82,14 @@ func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					tenders := parsergovru.ParseGovRu("build", config, re)
+					tenders, err := parsergovru.ParseGovRu("build", config, re)
+					if err != nil {
+						c.JSON(http.StatusInternalServerError, gin.H{
+							"error":   "Failed to create Excel file",
+							"details": err.Error(),
+						})
+						return
+					}
 					allTenders.Build = tenders
 					stats["buildFound"] = len(tenders)
 					mu.Lock()
@@ -81,7 +102,7 @@ func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 
 		}
 
-		if len(allTenders.Doors)+len(allTenders.Vent) == 0 {
+		if len(allTenders.Doors)+len(allTenders.Vent)+len(allTenders.Build) == 0 {
 			logger.SugaredLogger.Warn("0 tenders found")
 		}
 
