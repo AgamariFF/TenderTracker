@@ -8,6 +8,7 @@ type AllTenders struct {
 	Vent  []Tender
 	Doors []Tender
 	Build []Tender
+	Metal []Tender
 }
 
 type Tender struct {
@@ -23,6 +24,7 @@ type Config struct {
 	SearchVent        bool     `form:"search_vent"`
 	SearchDoors       bool     `form:"search_doors"`
 	SearchBuild       bool     `form:"search_build"`
+	SearchMetal       bool     `form:"search_metal`
 	VentCustomerPlace []string `form:"vent_customer_place"`
 	VentDelKladrIds   []string `form:"vent_del_kladr_ids"`
 }
@@ -45,6 +47,12 @@ func (c *Config) Bind(ctx *gin.Context) error {
 		c.SearchBuild = true
 	} else {
 		c.SearchBuild = false
+	}
+
+	if ctx.PostForm("search_metal") == "on" || ctx.PostForm("search_metal") == "true" {
+		c.SearchMetal = true
+	} else {
+		c.SearchMetal = false
 	}
 
 	// Обрабатываем массивы

@@ -120,6 +120,29 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 		tenders := mergeTendersWithoutDuplicates(allTenders)
 		return tenders, nil
 
+	case "metal":
+		encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
+
+		url := encoder.
+			AddParam("searchString", "изготовление металлоконструкц").
+			AddParam("morphology", "on").
+			AddParam("search-filter", "Дате размещения").
+			AddParam("fz44", "on").
+			AddParam("fz223", "on").
+			AddParam("ppRf615", "on").
+			AddArrayParam("customerPlace", config.VentCustomerPlace).
+			AddArrayParam("delKladrIds", config.VentDelKladrIds).
+			AddParam("gws", "Выберите тип закупки").
+			// AddParam("publishDateFrom", "01.10.2025").
+			// AddParam("applSubmissionCloseDateTo", "02.10.2025").
+			AddParam("af", "on").
+			Build()
+
+		tenders, err := NewParser().ParseAllPages(name, url, re)
+		if err != nil {
+			return tenders, err
+		}
+		return tenders, nil
 	}
 
 	return nil, fmt.Errorf("Incorrect parametrs")
@@ -141,8 +164,8 @@ func (p *Parser) ParseAllPages(name, baseURL string, re *regexp.Regexp) ([]model
 	for {
 		url := urlgen.ReplaceURLParam(urlgen.ReplaceURLParam(baseURL, "pageNumber", strconv.Itoa(page)), "recordsPerPage", "_"+strconv.Itoa(quantityCards))
 
-		fmt.Printf("%s: Парсинг страницы %d...\n", name, page)
-		fmt.Println(url)
+		logger.SugaredLogger.Infof("%s: Парсинг страницы %d...\n", name, page)
+		logger.SugaredLogger.Info(url)
 
 		tenders, totalCards, err := p.ParsePage(url, re)
 		if err != nil {
@@ -151,16 +174,16 @@ func (p *Parser) ParseAllPages(name, baseURL string, re *regexp.Regexp) ([]model
 
 		allTenders = append(allTenders, tenders...)
 
-		fmt.Printf("%s: Страница %d: найдено %d карточек, распарсено %d тендеров\n",
+		logger.SugaredLogger.Infof("%s: Страница %d: найдено %d карточек, распарсено %d тендеров\n",
 			name, page, totalCards, len(tenders))
 
 		if totalCards < quantityCards {
-			fmt.Printf("%s: Последняя страница достигнута. Всего страниц: %d\n", name, page)
+			logger.SugaredLogger.Infof("%s: Последняя страница достигнута. Всего страниц: %d\n", name, page)
 			break
 		}
 
 		if totalCards == 0 {
-			fmt.Printf("%s: На странице %d не найдено карточек, завершаем\n", name, page)
+			logger.SugaredLogger.Infof("%s: На странице %d не найдено карточек, завершаем\n", name, page)
 			break
 		}
 

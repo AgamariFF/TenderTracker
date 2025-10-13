@@ -34,7 +34,7 @@ func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 
 		logger.SugaredLogger.Infof("config: %+v", config)
 
-		if config.SearchVent || config.SearchDoors {
+		if config.SearchVent || config.SearchDoors || config.SearchMetal || config.SearchBuild {
 			var wg sync.WaitGroup
 			var mu sync.Mutex
 
@@ -98,11 +98,31 @@ func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 				}()
 			}
 
+			if config.SearchMetal {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					tenders, err := parsergovru.ParseGovRu("metal", config, re)
+					if err != nil {
+						c.JSON(http.StatusInternalServerError, gin.H{
+							"error":   "Failed to create Excel file",
+							"details": err.Error(),
+						})
+						return
+					}
+					allTenders.Metal = tenders
+					stats["metalFound"] = len(tenders)
+					mu.Lock()
+					stats["totalFound"] += stats["metalFound"]
+					mu.Unlock()
+				}()
+			}
+
 			wg.Wait()
 
 		}
 
-		if len(allTenders.Doors)+len(allTenders.Vent)+len(allTenders.Build) == 0 {
+		if len(allTenders.Doors)+len(allTenders.Vent)+len(allTenders.Build)+len(allTenders.Metal) == 0 {
 			logger.SugaredLogger.Warn("0 tenders found")
 		}
 

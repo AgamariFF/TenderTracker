@@ -13,8 +13,16 @@ func ToExcel(config models.Config, allTenders *models.AllTenders) (*excelize.Fil
 
 	if config.SearchVent {
 		addTendersAndSheet(excelFile, allTenders.Vent, "Вентиляция")
+
+	}
+	if config.SearchDoors {
 		addTendersAndSheet(excelFile, allTenders.Doors, "Двери")
+	}
+	if config.SearchBuild {
 		addTendersAndSheet(excelFile, allTenders.Build, "Строительство")
+	}
+	if config.SearchMetal {
+		addTendersAndSheet(excelFile, allTenders.Metal, "Металл.")
 	}
 
 	return excelFile, nil

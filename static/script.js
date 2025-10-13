@@ -26,6 +26,7 @@ document.getElementById('searchForm').addEventListener('submit', function(e) {
     formData.set('search_vent', document.getElementById('searchVent').checked);
     formData.set('search_doors', document.getElementById('searchDoors').checked);
     formData.set('search_build', document.getElementById('searchBuild').checked);
+    formData.set('search_metal', document.getElementById('searchMetal').checked);
 
     console.log('FormData содержимое:');
     for (let [key, value] of formData.entries()) {
@@ -75,6 +76,7 @@ function showSuccess(data) {
     const searchVent = document.getElementById('searchVent').checked
     const searchDoors = document.getElementById('searchDoors').checked
     const searchBuild = document.getElementById('searchBuild').checked
+    const searchMetal = document.getElementById('searchMetal').checked
     
     const statsElement = document.getElementById('searchStats');
     
@@ -129,6 +131,19 @@ function showSuccess(data) {
                         <div class="card-body text-center">
                             <h4 class="text-primary">${data.stats.buildFound}</h4>
                             <small class="text-muted">Найдено закупок по строительству/реконструкции</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        if (searchMetal) {
+            statsHTML += `
+                <div class="col-md-4">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h4 class="text-primary">${data.stats.metalFound}</h4>
+                            <small class="text-muted">Найдено закупок по поставке металлоконструкций</small>
                         </div>
                     </div>
                 </div>
