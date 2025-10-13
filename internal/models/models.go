@@ -42,9 +42,9 @@ func (c *Config) Bind(ctx *gin.Context) error {
 	}
 
 	if ctx.PostForm("search_build") == "on" || ctx.PostForm("search_build") == "true" {
-		c.SearchDoors = true
+		c.SearchBuild = true
 	} else {
-		c.SearchDoors = false
+		c.SearchBuild = false
 	}
 
 	// Обрабатываем массивы

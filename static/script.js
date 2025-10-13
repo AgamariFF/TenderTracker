@@ -128,7 +128,7 @@ function showSuccess(data) {
                     <div class="card bg-light">
                         <div class="card-body text-center">
                             <h4 class="text-primary">${data.stats.buildFound}</h4>
-                            <small class="text-muted">Найдено закупок по монтажу дверей</small>
+                            <small class="text-muted">Найдено закупок по строительству/реконструкции</small>
                         </div>
                     </div>
                 </div>

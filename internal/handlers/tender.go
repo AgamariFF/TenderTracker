@@ -72,7 +72,7 @@ func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 					allTenders.Build = tenders
 					stats["buildFound"] = len(tenders)
 					mu.Lock()
-					stats["totalFound"] += stats["doorsFound"]
+					stats["totalFound"] += stats["buildFound"]
 					mu.Unlock()
 				}()
 			}
