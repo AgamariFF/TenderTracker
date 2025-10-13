@@ -22,6 +22,15 @@ document.getElementById('searchForm').addEventListener('submit', function(e) {
     // Собираем данные формы
     const formData = new FormData(this);
     
+    // Добавляем булевы значения для переключателей
+    formData.set('search_vent', document.getElementById('searchVent').checked);
+    formData.set('search_doors', document.getElementById('searchDoors').checked);
+
+    console.log('FormData содержимое:');
+    for (let [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+    }
+    
     // Добавляем выбранные федеральные округа (customerPlace)
     const customerPlace = Array.from(document.querySelectorAll('.customer-place:checked'))
         .map(checkbox => checkbox.value);

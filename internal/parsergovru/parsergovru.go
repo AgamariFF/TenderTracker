@@ -45,7 +45,28 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) []models.
 		return tenders
 
 	case "doors":
+		encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
 
+		url := encoder.
+			AddParam("searchString", "монтаж двер").
+			AddParam("morphology", "on").
+			AddParam("search-filter", "Дате размещения").
+			AddParam("fz44", "on").
+			AddParam("fz223", "on").
+			AddParam("ppRf615", "on").
+			AddArrayParam("customerPlace", config.VentCustomerPlace).
+			AddArrayParam("delKladrIds", config.VentDelKladrIds).
+			AddParam("gws", "Выберите тип закупки").
+			// AddParam("publishDateFrom", "01.10.2025").
+			// AddParam("applSubmissionCloseDateTo", "02.10.2025").
+			AddParam("af", "on").
+			Build()
+
+		tenders, err := NewParser().ParseAllPages(url, re)
+		if err != nil {
+			fmt.Println(err)
+		}
+		return tenders
 	}
 
 	return nil

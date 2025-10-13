@@ -14,6 +14,7 @@ import (
 
 func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		logger.SugaredLogger.Infof("Starting search tenders.")
 		allTenders := &models.AllTenders{}
 		config := &models.Config{}
 
@@ -26,14 +27,26 @@ func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 			return
 		}
 
-		stats := map[string]interface{}{
+		stats := map[string]int{
 			"totalFound": 0,
 		}
+
+		logger.SugaredLogger.Infof("config: %+v", config)
 
 		if config.SearchVent {
 			tenders := parsergovru.ParseGovRu("vent", config, re)
 			allTenders.Vent = tenders
 			stats["totalFound"] = len(tenders)
+		}
+
+		if config.SearchDoors {
+			tenders := parsergovru.ParseGovRu("doors", config, re)
+			allTenders.Doors = tenders
+			stats["totalFound"] += len(tenders)
+		}
+
+		if len(allTenders.Doors)+len(allTenders.Vent) == 0 {
+			logger.SugaredLogger.Warn("0 tenders found")
 		}
 
 		file, err := excel.ToExcel(*config, allTenders)
