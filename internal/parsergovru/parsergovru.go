@@ -270,10 +270,14 @@ func (p *Parser) parseTenderCard(name string, s *goquery.Selection, re *regexp.R
 		minPrice = config.MinPriceVent
 	case ("doors"):
 		minPrice = config.MinPriceDoors
-	case ("build"):
-		minPrice = config.MinPriceBuild
 	case ("metal"):
 		minPrice = config.MinPriceMetal
+	default:
+		if strings.Contains(name, "build") {
+			minPrice = config.MinPriceBuild
+		} else {
+			minPrice = 0
+		}
 	}
 
 	priceElem := s.Find(".price-block__value")
