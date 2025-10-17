@@ -28,6 +28,35 @@ document.getElementById('searchForm').addEventListener('submit', function(e) {
     formData.set('search_build', document.getElementById('searchBuild').checked);
     formData.set('search_metal', document.getElementById('searchMetal').checked);
 
+    // Добавляем минимальные суммы (только если переключатель активен и значение указано)
+    if (document.getElementById('searchVent').checked) {
+        const minPriceVent = document.getElementById('minPriceVent').value;
+        if (minPriceVent && minPriceVent > 0) {
+            formData.set('min_price_vent', minPriceVent);
+        }
+    }
+    
+    if (document.getElementById('searchDoors').checked) {
+        const minPriceDoors = document.getElementById('minPriceDoors').value;
+        if (minPriceDoors && minPriceDoors > 0) {
+            formData.set('min_price_doors', minPriceDoors);
+        }
+    }
+    
+    if (document.getElementById('searchBuild').checked) {
+        const minPriceBuild = document.getElementById('minPriceBuild').value;
+        if (minPriceBuild && minPriceBuild > 0) {
+            formData.set('min_price_build', minPriceBuild);
+        }
+    }
+    
+    if (document.getElementById('searchMetal').checked) {
+        const minPriceMetal = document.getElementById('minPriceMetal').value;
+        if (minPriceMetal && minPriceMetal > 0) {
+            formData.set('min_price_metal', minPriceMetal);
+        }
+    }
+
     console.log('FormData содержимое:');
     for (let [key, value] of formData.entries()) {
         console.log(`${key}: ${value}`);
@@ -192,3 +221,49 @@ function changePort(port, path = '') {
         window.location.href = `//${host}:${port}/`
     }
 }
+
+function setMinPrices(amount) {
+const priceInputs = [
+    'minPriceVent', 'minPriceDoors', 'minPriceBuild', 'minPriceMetal'
+];
+
+priceInputs.forEach(inputId => {
+    const input = document.getElementById(inputId);
+    if (input) {
+        input.value = amount;
+    }
+});
+}
+
+function clearMinPrices() {
+const priceInputs = [
+    'minPriceVent', 'minPriceDoors', 'minPriceBuild', 'minPriceMetal'
+];
+
+priceInputs.forEach(inputId => {
+    const input = document.getElementById(inputId);
+    if (input) {
+        input.value = '';
+    }
+});
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+const switches = ['searchVent', 'searchDoors', 'searchBuild', 'searchMetal'];
+
+switches.forEach(switchId => {
+    const switchElement = document.getElementById(switchId);
+    const priceInput = document.getElementById('minPrice' + switchId.charAt(6) + switchId.slice(7));
+    
+    if (switchElement && priceInput) {
+        priceInput.disabled = !switchElement.checked;
+        
+        switchElement.addEventListener('change', function() {
+            priceInput.disabled = !this.checked;
+            if (!this.checked) {
+                priceInput.value = '';
+            }
+        });
+    }
+});
+});

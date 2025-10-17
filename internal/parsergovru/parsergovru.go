@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"tendertracker/internal/logger"
 	"tendertracker/internal/models"
@@ -18,6 +19,14 @@ import (
 
 type Parser struct {
 	client *http.Client
+}
+
+func NewParser() *Parser {
+	return &Parser{
+		client: &http.Client{
+			Timeout: 45 * time.Second,
+		},
+	}
 }
 
 func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models.Tender, error) {
@@ -40,7 +49,7 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 			AddParam("af", "on").
 			Build()
 
-		tenders, err := NewParser().ParseAllPages(name, url, re)
+		tenders, err := NewParser().ParseAllPages(name, url, re, config)
 		if err != nil {
 			return tenders, err
 		}
@@ -64,7 +73,7 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 			AddParam("af", "on").
 			Build()
 
-		tenders, err := NewParser().ParseAllPages(name, url, re)
+		tenders, err := NewParser().ParseAllPages(name, url, re, config)
 		if err != nil {
 			return tenders, err
 		}
@@ -96,7 +105,7 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 				AddParam("af", "on").
 				Build()
 
-			tenders, err := NewParser().ParseAllPages(name+suffix, url, re)
+			tenders, err := NewParser().ParseAllPages(name+suffix, url, re, config)
 
 			mu.Lock()
 			if err != nil {
@@ -138,7 +147,7 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 			AddParam("af", "on").
 			Build()
 
-		tenders, err := NewParser().ParseAllPages(name, url, re)
+		tenders, err := NewParser().ParseAllPages(name, url, re, config)
 		if err != nil {
 			return tenders, err
 		}
@@ -148,15 +157,7 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 	return nil, fmt.Errorf("Incorrect parametrs")
 }
 
-func NewParser() *Parser {
-	return &Parser{
-		client: &http.Client{
-			Timeout: 45 * time.Second,
-		},
-	}
-}
-
-func (p *Parser) ParseAllPages(name, baseURL string, re *regexp.Regexp) ([]models.Tender, error) {
+func (p *Parser) ParseAllPages(name, baseURL string, re *regexp.Regexp, config *models.Config) ([]models.Tender, error) {
 	var allTenders []models.Tender
 	quantityCards := 50
 	page := 1
@@ -167,7 +168,7 @@ func (p *Parser) ParseAllPages(name, baseURL string, re *regexp.Regexp) ([]model
 		logger.SugaredLogger.Infof("%s: Парсинг страницы %d...\n", name, page)
 		logger.SugaredLogger.Info(url)
 
-		tenders, totalCards, err := p.ParsePage(url, re)
+		tenders, totalCards, err := p.ParsePage(name, url, re, config)
 		if err != nil {
 			return nil, fmt.Errorf("%s: ошибка на странице %d: %w", name, page, err)
 		}
@@ -195,7 +196,7 @@ func (p *Parser) ParseAllPages(name, baseURL string, re *regexp.Regexp) ([]model
 	return allTenders, nil
 }
 
-func (p *Parser) ParsePage(url string, re *regexp.Regexp) ([]models.Tender, int, error) {
+func (p *Parser) ParsePage(name, url string, re *regexp.Regexp, config *models.Config) ([]models.Tender, int, error) {
 	var resp *http.Response
 	var err error
 
@@ -242,7 +243,7 @@ func (p *Parser) ParsePage(url string, re *regexp.Regexp) ([]models.Tender, int,
 	totalCards := doc.Find(".search-registry-entry-block").Length()
 
 	doc.Find(".search-registry-entry-block").Each(func(i int, s *goquery.Selection) {
-		tender := p.parseTenderCard(s, re)
+		tender := p.parseTenderCard(name, s, re, config)
 		if tender.Title != "" {
 			tenders = append(tenders, tender)
 		}
@@ -251,7 +252,7 @@ func (p *Parser) ParsePage(url string, re *regexp.Regexp) ([]models.Tender, int,
 	return tenders, totalCards, nil
 }
 
-func (p *Parser) parseTenderCard(s *goquery.Selection, re *regexp.Regexp) models.Tender {
+func (p *Parser) parseTenderCard(name string, s *goquery.Selection, re *regexp.Regexp, config *models.Config) models.Tender {
 	var tender models.Tender
 
 	// Название
@@ -261,22 +262,48 @@ func (p *Parser) parseTenderCard(s *goquery.Selection, re *regexp.Regexp) models
 		return models.Tender{}
 	}
 
-	// Ссылка
-	link, exists := s.Find(".registry-entry__header-mid__number a").Attr("href")
-	if exists {
-		if !strings.HasPrefix(link, "http") {
-			tender.Link = "https://zakupki.gov.ru" + link
-		} else {
-			tender.Link = link
-		}
+	// Цена - ищем ТОЛЬКО в пределах текущей карточки
+	var minPrice int
+
+	switch name {
+	case ("vent"):
+		minPrice = config.MinPriceVent
+	case ("doors"):
+		minPrice = config.MinPriceDoors
+	case ("build"):
+		minPrice = config.MinPriceBuild
+	case ("metal"):
+		minPrice = config.MinPriceMetal
 	}
 
-	// Заказчик
-	tender.Customer = strings.TrimSpace(s.Find(".registry-entry__body-href").Text())
-
-	// Цена - ищем ТОЛЬКО в пределах текущей карточки
 	priceElem := s.Find(".price-block__value")
 	if priceElem.Length() > 0 {
+		priceText := strings.TrimSpace(priceElem.First().Text())
+
+		priceText = strings.ReplaceAll(priceText, "	", "")
+		priceText = strings.ReplaceAll(priceText, "	", "")      // табуляция
+		priceText = strings.ReplaceAll(priceText, "\u00A0", "") // неразрывный пробел
+
+		// Находим индекс первого нецифрового символа
+		firstNonDigit := strings.IndexFunc(priceText, func(r rune) bool {
+			return !unicode.IsDigit(r)
+		})
+
+		if firstNonDigit != -1 {
+			priceText = priceText[:firstNonDigit]
+
+			priceInt, err := strconv.Atoi(priceText)
+			if err != nil {
+				logger.SugaredLogger.Warnf("Incorrect trimed price (not number)")
+			}
+			if priceInt < minPrice {
+				return models.Tender{}
+			}
+
+		} else {
+			logger.SugaredLogger.Warnln("Incorrect price in tender card")
+		}
+
 		tender.Price = strings.TrimSpace(priceElem.First().Text())
 	} else {
 		tender.Price = "Не указана" // или пустая строка
@@ -291,6 +318,19 @@ func (p *Parser) parseTenderCard(s *goquery.Selection, re *regexp.Regexp) models
 			tender.PublishDate = value
 		}
 	})
+
+	// Ссылка
+	link, exists := s.Find(".registry-entry__header-mid__number a").Attr("href")
+	if exists {
+		if !strings.HasPrefix(link, "http") {
+			tender.Link = "https://zakupki.gov.ru" + link
+		} else {
+			tender.Link = link
+		}
+	}
+
+	// Заказчик
+	tender.Customer = strings.TrimSpace(s.Find(".registry-entry__body-href").Text())
 
 	// Дата окончания подачи заявок (находится отдельно)
 	applicationEnd := s.Find(".data-block__title:contains('Окончание подачи заявок') + .data-block__value")

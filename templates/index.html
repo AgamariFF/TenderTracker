@@ -66,44 +66,99 @@
                                     </h6>
                                     
                                     <div class="row">
-                                        <div class="col-md-6">
-                                            <!-- Первый переключатель -->
-                                            <div class="form-check form-switch mb-2">
-                                                <input class="form-check-input" type="checkbox" id="searchVent" name="search_vent" checked>
-                                                <label class="form-check-label" for="searchVent">
-                                                    <strong>Вентиляционные системы</strong>
-                                                    <small class="text-muted d-block">Вентиляция и кондиционирование</small>
-                                                </label>
+                                        <div class="col-md-6 mb-3">
+                                            <!-- Вентиляционные системы -->
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="searchVent" name="search_vent" checked>
+                                                    <label class="form-check-label" for="searchVent">
+                                                        <strong>Вентиляционные системы</strong>
+                                                        <small class="text-muted d-block">Вентиляция и кондиционирование</small>
+                                                    </label>
+                                                </div>
+                                                <div class="ms-3" style="min-width: 120px;">
+                                                    <label class="form-label small text-muted mb-1">Мин. сумма</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" class="form-control" id="minPriceVent" name="min_price_vent" placeholder="0" min="0" step="1000">
+                                                        <span class="input-group-text">₽</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div class="col-md-6">
-                                            <!-- Второй переключатель -->
-                                            <div class="form-check form-switch mb-2">
-                                                <input class="form-check-input" type="checkbox" id="searchDoors" name="search_doors">
-                                                <label class="form-check-label" for="searchDoors">
-                                                    <strong>Монтаж дверей</strong>
-                                                    <small class="text-muted d-block">Монтаж и поставка дверей</small>
-                                                </label>
+
+                                        <div class="col-md-6 mb-3">
+                                            <!-- Монтаж дверей -->
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="searchDoors" name="search_doors">
+                                                    <label class="form-check-label" for="searchDoors">
+                                                        <strong>Монтаж дверей</strong>
+                                                        <small class="text-muted d-block">Монтаж и поставка дверей</small>
+                                                    </label>
+                                                </div>
+                                                <div class="ms-3" style="min-width: 120px;">
+                                                    <label class="form-label small text-muted mb-1">Мин. сумма</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" class="form-control" id="minPriceDoors" name="min_price_doors" placeholder="0" min="0" step="1000">
+                                                        <span class="input-group-text">₽</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div class="col-md-6">
-                                            <!-- 3 переключатель -->
-                                            <div class="form-check form-switch mb-2">
-                                                <input class="form-check-input" type="checkbox" id="searchBuild" name="search_build">
-                                                <label class="form-check-label" for="searchBuild">
-                                                    <strong>Реконструкция и строительство</strong>
-                                                    <small class="text-muted d-block">Реконструкция, строительство и капитальный ремонт</small>
-                                                </label>
+
+                                        <div class="col-md-6 mb-3">
+                                            <!-- Реконструкция и строительство -->
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="searchBuild" name="search_build">
+                                                    <label class="form-check-label" for="searchBuild">
+                                                        <strong>Реконструкция и строительство</strong>
+                                                        <small class="text-muted d-block">Реконструкция, строительство и капитальный ремонт</small>
+                                                    </label>
+                                                </div>
+                                                <div class="ms-3" style="min-width: 120px;">
+                                                    <label class="form-label small text-muted mb-1">Мин. сумма</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" class="form-control" id="minPriceBuild" name="min_price_build" placeholder="0" min="0" step="1000">
+                                                        <span class="input-group-text">₽</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div class="col-md-6">
-                                            <!-- 4 переключатель -->
-                                            <div class="form-check form-switch mb-2">
-                                                <input class="form-check-input" type="checkbox" id="searchMetal" name="search_metal">
-                                                <label class="form-check-label" for="searchMetal">
-                                                    <strong>Изготовление металлоконструкций</strong>
-                                                    <small class="text-muted d-block">Изготовление, поставка металлоконструкций для ПКФ "Квант"</small>
-                                                </label>
+
+                                        <div class="col-md-6 mb-3">
+                                            <!-- Изготовление металлоконструкций -->
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="searchMetal" name="search_metal">
+                                                    <label class="form-check-label" for="searchMetal">
+                                                        <strong>Изготовление металлоконструкций</strong>
+                                                        <small class="text-muted d-block">Изготовление, поставка металлоконструкций для ПКФ "Квант"</small>
+                                                    </label>
+                                                </div>
+                                                <div class="ms-3" style="min-width: 120px;">
+                                                    <label class="form-label small text-muted mb-1">Мин. сумма</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" class="form-control" id="minPriceMetal" name="min_price_metal" placeholder="0" min="0" step="1000">
+                                                        <span class="input-group-text">₽</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Кнопки для быстрой установки сумм -->
+                                    <div class="row mt-2">
+                                        <div class="col-12">
+                                            <small class="text-muted">Быстрая установка сумм:</small>
+                                            <div class="btn-group btn-group-sm ms-2" role="group">
+                                                <button type="button" class="btn btn-outline-secondary" onclick="setMinPrices(100000)">100 тыс.</button>
+                                                <button type="button" class="btn btn-outline-secondary" onclick="setMinPrices(500000)">500 тыс.</button>
+                                                <button type="button" class="btn btn-outline-secondary" onclick="setMinPrices(1000000)">1 млн</button>
+                                                <button type="button" class="btn btn-outline-secondary" onclick="setMinPrices(2000000)">2 млн</button>
+                                                <button type="button" class="btn btn-outline-secondary" onclick="setMinPrices(5000000)">5 млн</button>
+                                                <button type="button" class="btn btn-outline-secondary" onclick="setMinPrices(10000000)">10 млн</button>
+                                                <button type="button" class="btn btn-outline-secondary" onclick="clearMinPrices()">Очистить</button>
                                             </div>
                                         </div>
                                     </div>
@@ -356,6 +411,7 @@
                     <h6>Как использовать приложение:</h6>
                     <ul>
                         <li><strong>Выберите тип закупок</strong> - отметьте нужные категории для поиска</li>
+                        <li><strong>Настройте минимальные суммы</strong> - укажите минимальный бюджет для каждой категории</li>
                         <li><strong>Настройте регионы</strong> - выберите федеральные округа для поиска</li>
                         <li><strong>Запустите поиск</strong> - нажмите кнопку "Найти закупки"</li>
                         <li><strong>Скачайте результат</strong> - после завершения поиска скачайте Excel файл</li>
@@ -364,7 +420,7 @@
                     <h6 class="mt-4">Подсказки:</h6>
                     <ul>
                         <li>Поиск может занять несколько минут в зависимости от количества найденных закупок</li>
-                        <li>Для точного поиска выбирайте конкретные регионы</li>
+                        <li>Для точного поиска выбирайте конкретные регионы и устанавливайте минимальные суммы</li>
                         <li>Результаты сохраняются в формате Excel для удобного анализа</li>
                     </ul>
                 </div>
