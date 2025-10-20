@@ -30,23 +30,29 @@ func NewParser() *Parser {
 }
 
 func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models.Tender, error) {
+	encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
+
+	now := time.Now()
+	twoYearsAgo := now.AddDate(-2, 0, 0)
+	dateString := twoYearsAgo.Format("02.01.2006")
+
+	defaultUrl := encoder.
+		AddParam("morphology", "on").
+		AddParam("search-filter", "Дате размещения").
+		AddParam("fz44", "on").
+		AddParam("fz223", "on").
+		AddParam("ppRf615", "on").
+		AddArrayParam("customerPlace", config.VentCustomerPlace).
+		AddArrayParam("delKladrIds", config.VentDelKladrIds).
+		AddParam("gws", "Выберите тип закупки").
+		// AddParam("publishDateFrom", "01.10.2025").
+		AddParam("applSubmissionCloseDateFrom", dateString).
+		AddParam("af", "on")
+
 	switch name {
 	case "vent":
-		encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
-
-		url := encoder.
+		url := defaultUrl.
 			AddParam("searchString", "вентиляции").
-			AddParam("morphology", "on").
-			AddParam("search-filter", "Дате размещения").
-			AddParam("fz44", "on").
-			AddParam("fz223", "on").
-			AddParam("ppRf615", "on").
-			AddArrayParam("customerPlace", config.VentCustomerPlace).
-			AddArrayParam("delKladrIds", config.VentDelKladrIds).
-			AddParam("gws", "Выберите тип закупки").
-			// AddParam("publishDateFrom", "01.10.2025").
-			// AddParam("applSubmissionCloseDateTo", "02.10.2025").
-			AddParam("af", "on").
 			Build()
 
 		tenders, err := NewParser().ParseAllPages(name, url, re, config)
@@ -56,21 +62,8 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 		return tenders, nil
 
 	case "doors":
-		encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
-
-		url := encoder.
+		url := defaultUrl.
 			AddParam("searchString", "монтаж двер").
-			AddParam("morphology", "on").
-			AddParam("search-filter", "Дате размещения").
-			AddParam("fz44", "on").
-			AddParam("fz223", "on").
-			AddParam("ppRf615", "on").
-			AddArrayParam("customerPlace", config.VentCustomerPlace).
-			AddArrayParam("delKladrIds", config.VentDelKladrIds).
-			AddParam("gws", "Выберите тип закупки").
-			// AddParam("publishDateFrom", "01.10.2025").
-			// AddParam("applSubmissionCloseDateTo", "02.10.2025").
-			AddParam("af", "on").
 			Build()
 
 		tenders, err := NewParser().ParseAllPages(name, url, re, config)
@@ -89,20 +82,8 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 		parseInGoroutine := func(searchString string, suffix string) {
 			defer wg.Done()
 
-			encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
-			url := encoder.
+			url := defaultUrl.
 				AddParam("searchString", searchString).
-				AddParam("morphology", "on").
-				AddParam("search-filter", "Дате размещения").
-				AddParam("fz44", "on").
-				AddParam("fz223", "on").
-				AddParam("ppRf615", "on").
-				AddArrayParam("customerPlace", config.VentCustomerPlace).
-				AddArrayParam("delKladrIds", config.VentDelKladrIds).
-				AddParam("gws", "Выберите тип закупки").
-				// AddParam("publishDateFrom", "01.10.2025").
-				// AddParam("applSubmissionCloseDateTo", "02.10.2025").
-				AddParam("af", "on").
 				Build()
 
 			tenders, err := NewParser().ParseAllPages(name+suffix, url, re, config)
@@ -130,21 +111,8 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 		return tenders, nil
 
 	case "metal":
-		encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
-
-		url := encoder.
+		url := defaultUrl.
 			AddParam("searchString", "изготовление металлоконструкц").
-			AddParam("morphology", "on").
-			AddParam("search-filter", "Дате размещения").
-			AddParam("fz44", "on").
-			AddParam("fz223", "on").
-			AddParam("ppRf615", "on").
-			AddArrayParam("customerPlace", config.VentCustomerPlace).
-			AddArrayParam("delKladrIds", config.VentDelKladrIds).
-			AddParam("gws", "Выберите тип закупки").
-			// AddParam("publishDateFrom", "01.10.2025").
-			// AddParam("applSubmissionCloseDateTo", "02.10.2025").
-			AddParam("af", "on").
 			Build()
 
 		tenders, err := NewParser().ParseAllPages(name, url, re, config)
@@ -359,4 +327,26 @@ func mergeTendersWithoutDuplicates(tenderSlices ...[]models.Tender) []models.Ten
 	}
 
 	return result
+}
+
+func defaultParams(config models.Config) urlgen.URLEncoder {
+	encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
+
+	now := time.Now()
+	twoYearsAgo := now.AddDate(-2, 0, 0)
+	dateString := twoYearsAgo.Format("02.01.2006")
+
+	url := encoder.
+		AddParam("morphology", "on").
+		AddParam("search-filter", "Дате размещения").
+		AddParam("fz44", "on").
+		AddParam("fz223", "on").
+		AddParam("ppRf615", "on").
+		AddArrayParam("customerPlace", config.VentCustomerPlace).
+		AddArrayParam("delKladrIds", config.VentDelKladrIds).
+		AddParam("gws", "Выберите тип закупки").
+		// AddParam("publishDateFrom", "01.10.2025").
+		AddParam("applSubmissionCloseDateFrom", dateString).
+		AddParam("af", "on")
+	return *url
 }
