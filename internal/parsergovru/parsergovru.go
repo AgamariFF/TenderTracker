@@ -30,36 +30,10 @@ func NewParser() *Parser {
 }
 
 func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models.Tender, error) {
-	encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
-
-	now := time.Now()
-	twoYearsAgo := now.AddDate(-2, 0, 0)
-	dateString := twoYearsAgo.Format("02.01.2006")
-
-	defaultUrl := encoder.
-		AddParam("morphology", "on").
-		AddParam("search-filter", "Дате размещения").
-		AddParam("fz44", "on").
-		AddParam("fz223", "on").
-		AddParam("ppRf615", "on").
-		AddArrayParam("customerPlace", config.VentCustomerPlace).
-		AddArrayParam("delKladrIds", config.VentDelKladrIds).
-		// AddParam("publishDateFrom", "01.10.2025").
-		AddParam("applSubmissionCloseDateFrom", dateString).
-		AddParam("af", "on")
-
-	switch config.ProcurementType {
-	case "active":
-		defaultUrl = defaultUrl.AddParam("af", "on")
-	case "completed":
-		defaultUrl = defaultUrl.AddParam("pc", "on")
-	}
 
 	switch name {
 	case "vent":
-		url := defaultUrl.
-			AddParam("searchString", "вентиляции").
-			Build()
+		url := createUrl(*config, "вентиляции")
 
 		tenders, err := NewParser().ParseAllPages(name, url, re, config)
 		if err != nil {
@@ -68,9 +42,7 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 		return tenders, nil
 
 	case "doors":
-		url := defaultUrl.
-			AddParam("searchString", "монтаж двер").
-			Build()
+		url := createUrl(*config, "монтаж двер")
 
 		tenders, err := NewParser().ParseAllPages(name, url, re, config)
 		if err != nil {
@@ -88,9 +60,7 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 		parseInGoroutine := func(searchString string, suffix string) {
 			defer wg.Done()
 
-			url := defaultUrl.
-				AddParam("searchString", searchString).
-				Build()
+			url := createUrl(*config, searchString)
 
 			tenders, err := NewParser().ParseAllPages(name+suffix, url, re, config)
 
@@ -117,9 +87,7 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 		return tenders, nil
 
 	case "metal":
-		url := defaultUrl.
-			AddParam("searchString", "изготовление металлоконструкц").
-			Build()
+		url := createUrl(*config, "изготовление металлоконструкц")
 
 		tenders, err := NewParser().ParseAllPages(name, url, re, config)
 		if err != nil {
@@ -191,7 +159,7 @@ func (p *Parser) ParsePage(name, url string, re *regexp.Regexp, config *models.C
 
 		if attempt < 3 {
 			waitTime := time.Duration(attempt*attempt) * 2 * time.Second
-			logger.SugaredLogger.Warnf("Попытка %d не удалась, повтор через %v: %v", attempt, waitTime, err)
+			logger.SugaredLogger.Warnf("%s Попытка %d не удалась, повтор через %v: %v", name, attempt, waitTime, err)
 			time.Sleep(waitTime)
 			continue
 		}
@@ -335,7 +303,7 @@ func mergeTendersWithoutDuplicates(tenderSlices ...[]models.Tender) []models.Ten
 	return result
 }
 
-func defaultParams(config models.Config) urlgen.URLEncoder {
+func createUrl(config models.Config, searchText string) string {
 	encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
 
 	now := time.Now()
@@ -353,6 +321,14 @@ func defaultParams(config models.Config) urlgen.URLEncoder {
 		AddParam("gws", "Выберите тип закупки").
 		// AddParam("publishDateFrom", "01.10.2025").
 		AddParam("applSubmissionCloseDateFrom", dateString).
-		AddParam("af", "on")
-	return *url
+		AddParam("searchString", searchText)
+
+	switch config.ProcurementType {
+	case "completed":
+		url.AddParam("pc", "on")
+	case "active":
+		url.AddParam("af", "on")
+	}
+
+	return url.Build()
 }
