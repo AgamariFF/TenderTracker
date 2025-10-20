@@ -44,10 +44,16 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 		AddParam("ppRf615", "on").
 		AddArrayParam("customerPlace", config.VentCustomerPlace).
 		AddArrayParam("delKladrIds", config.VentDelKladrIds).
-		AddParam("gws", "Выберите тип закупки").
 		// AddParam("publishDateFrom", "01.10.2025").
 		AddParam("applSubmissionCloseDateFrom", dateString).
 		AddParam("af", "on")
+
+	switch config.ProcurementType {
+	case "active":
+		defaultUrl = defaultUrl.AddParam("af", "on")
+	case "completed":
+		defaultUrl = defaultUrl.AddParam("pc", "on")
+	}
 
 	switch name {
 	case "vent":

@@ -22,6 +22,10 @@ document.getElementById('searchForm').addEventListener('submit', function(e) {
     // Собираем данные формы
     const formData = new FormData(this);
     
+    // Добавляем тип закупок (активные/завершенные)
+    const procurementType = getProcurementType();
+    formData.append('procurement_type', procurementType);
+    
     // Добавляем булевы значения для переключателей
     formData.set('search_vent', document.getElementById('searchVent').checked);
     formData.set('search_doors', document.getElementById('searchDoors').checked);
@@ -202,12 +206,6 @@ function downloadFile() {
     document.body.removeChild(link);
 }
 
-// Инициализация при загрузке страницы
-document.addEventListener('DOMContentLoaded', function() {
-    // Уже есть кнопки в HTML, поэтому ничего дополнительного не нужно
-});
-
-
 // Функция показа помощи
 function showHelp() {
     const helpModal = new bootstrap.Modal(document.getElementById('helpModal'));
@@ -223,47 +221,88 @@ function changePort(port, path = '') {
 }
 
 function setMinPrices(amount) {
-const priceInputs = [
-    'minPriceVent', 'minPriceDoors', 'minPriceBuild', 'minPriceMetal'
-];
+    const priceInputs = [
+        'minPriceVent', 'minPriceDoors', 'minPriceBuild', 'minPriceMetal'
+    ];
 
-priceInputs.forEach(inputId => {
-    const input = document.getElementById(inputId);
-    if (input) {
-        input.value = amount;
-    }
-});
+    priceInputs.forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.value = amount;
+        }
+    });
 }
 
 function clearMinPrices() {
-const priceInputs = [
-    'minPriceVent', 'minPriceDoors', 'minPriceBuild', 'minPriceMetal'
-];
+    const priceInputs = [
+        'minPriceVent', 'minPriceDoors', 'minPriceBuild', 'minPriceMetal'
+    ];
 
-priceInputs.forEach(inputId => {
-    const input = document.getElementById(inputId);
-    if (input) {
-        input.value = '';
-    }
-});
+    priceInputs.forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.value = '';
+        }
+    });
 }
 
+// Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
-const switches = ['searchVent', 'searchDoors', 'searchBuild', 'searchMetal'];
+    // Управление состоянием полей ввода минимальных сумм
+    const switches = ['searchVent', 'searchDoors', 'searchBuild', 'searchMetal'];
 
-switches.forEach(switchId => {
-    const switchElement = document.getElementById(switchId);
-    const priceInput = document.getElementById('minPrice' + switchId.charAt(6) + switchId.slice(7));
-    
-    if (switchElement && priceInput) {
-        priceInput.disabled = !switchElement.checked;
+    switches.forEach(switchId => {
+        const switchElement = document.getElementById(switchId);
+        const priceInput = document.getElementById('minPrice' + switchId.charAt(6) + switchId.slice(7));
         
-        switchElement.addEventListener('change', function() {
-            priceInput.disabled = !this.checked;
-            if (!this.checked) {
-                priceInput.value = '';
-            }
-        });
+        if (switchElement && priceInput) {
+            priceInput.disabled = !switchElement.checked;
+            
+            switchElement.addEventListener('change', function() {
+                priceInput.disabled = !this.checked;
+                if (!this.checked) {
+                    priceInput.value = '';
+                }
+            });
+        }
+    });
+
+    // Обработчики для переключателя типа закупок
+    const activeRadio = document.getElementById('activeProcurements');
+    const completedRadio = document.getElementById('completedProcurements');
+    const activeHint = document.getElementById('activeProcurementsHint');
+    const completedHint = document.getElementById('completedProcurementsHint');
+    
+    activeRadio.addEventListener('change', function() {
+        if (this.checked) {
+            activeHint.style.display = 'inline';
+            completedHint.style.display = 'none';
+            updateSearchButtonText('Найти активные закупки');
+        }
+    });
+    
+    completedRadio.addEventListener('change', function() {
+        if (this.checked) {
+            activeHint.style.display = 'none';
+            completedHint.style.display = 'inline';
+            updateSearchButtonText('Найти завершенные закупки');
+        }
+    });
+    
+    function updateSearchButtonText(text) {
+        const searchButton = document.querySelector('#searchForm button[type="submit"]');
+        const icon = '<i class="fas fa-search me-2"></i>';
+        searchButton.innerHTML = icon + text;
     }
+    
+    // Инициализация текста кнопки при загрузке
+    updateSearchButtonText('Найти активные закупки');
 });
-});
+
+// Получение текущего выбранного типа закупок
+function getProcurementType() {
+    if (document.getElementById('completedProcurements').checked) {
+        return 'completed';
+    }
+    return 'active';
+}

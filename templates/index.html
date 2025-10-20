@@ -47,6 +47,36 @@
             </div>
         </div>
 
+        <!-- Переключатель типа закупок -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted mb-3">
+                            <i class="fas fa-exchange-alt me-2"></i>Тип закупок
+                        </h6>
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="procurementType" id="activeProcurements" autocomplete="off" checked>
+                            <label class="btn btn-outline-primary" for="activeProcurements">
+                                <i class="fas fa-paper-plane me-2"></i>Подача заявок
+                            </label>
+
+                            <input type="radio" class="btn-check" name="procurementType" id="completedProcurements" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="completedProcurements">
+                                <i class="fas fa-check-circle me-2"></i>Завершенные закупки
+                            </label>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <span id="activeProcurementsHint">Поиск активных закупок с открытой подачей заявок</span>
+                                <span id="completedProcurementsHint" style="display: none;">Поиск завершенных закупок</span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Форма поиска -->
         <div class="row">
             <div class="col-12">
@@ -413,8 +443,15 @@
                         <li><strong>Выберите тип закупок</strong> - отметьте нужные категории для поиска</li>
                         <li><strong>Настройте минимальные суммы</strong> - укажите минимальный бюджет для каждой категории</li>
                         <li><strong>Настройте регионы</strong> - выберите федеральные округа для поиска</li>
+                        <li><strong>Выберите тип поиска</strong> - активные закупки или завершенные</li>
                         <li><strong>Запустите поиск</strong> - нажмите кнопку "Найти закупки"</li>
                         <li><strong>Скачайте результат</strong> - после завершения поиска скачайте Excel файл</li>
+                    </ul>
+                    
+                    <h6 class="mt-4">Типы закупок:</h6>
+                    <ul>
+                        <li><strong>Подача заявок</strong> - активные закупки с открытой подачей заявок</li>
+                        <li><strong>Завершенные закупки</strong> - архив закупок для анализа рынка и цен</li>
                     </ul>
                     
                     <h6 class="mt-4">Подсказки:</h6>
