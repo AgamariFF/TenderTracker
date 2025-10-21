@@ -24,7 +24,7 @@ type Parser struct {
 func NewParser() *Parser {
 	return &Parser{
 		client: &http.Client{
-			Timeout: 45 * time.Second,
+			Timeout: 60 * time.Second,
 		},
 	}
 }
@@ -33,7 +33,7 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 
 	switch name {
 	case "vent":
-		url := createUrl(*config, "вентиляции")
+		url := createUrl(*config, "вентиляции", config.MinPriceVent)
 
 		tenders, err := NewParser().ParseAllPages(name, url, re, config)
 		if err != nil {
@@ -42,7 +42,7 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 		return tenders, nil
 
 	case "doors":
-		url := createUrl(*config, "монтаж двер")
+		url := createUrl(*config, "монтаж двер", config.MinPriceDoors)
 
 		tenders, err := NewParser().ParseAllPages(name, url, re, config)
 		if err != nil {
@@ -60,7 +60,7 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 		parseInGoroutine := func(searchString string, suffix string) {
 			defer wg.Done()
 
-			url := createUrl(*config, searchString)
+			url := createUrl(*config, searchString, config.MinPriceBuild)
 
 			tenders, err := NewParser().ParseAllPages(name+suffix, url, re, config)
 
@@ -87,7 +87,7 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 		return tenders, nil
 
 	case "metal":
-		url := createUrl(*config, "изготовление металлоконструкц")
+		url := createUrl(*config, "изготовление металлоконструкц", config.MinPriceMetal)
 
 		tenders, err := NewParser().ParseAllPages(name, url, re, config)
 		if err != nil {
@@ -101,7 +101,7 @@ func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models
 
 func (p *Parser) ParseAllPages(name, baseURL string, re *regexp.Regexp, config *models.Config) ([]models.Tender, error) {
 	var allTenders []models.Tender
-	quantityCards := 50
+	quantityCards := 100
 	page := 1
 
 	for {
@@ -303,7 +303,7 @@ func mergeTendersWithoutDuplicates(tenderSlices ...[]models.Tender) []models.Ten
 	return result
 }
 
-func createUrl(config models.Config, searchText string) string {
+func createUrl(config models.Config, searchText string, minPrice int) string {
 	encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
 
 	now := time.Now()
@@ -321,7 +321,8 @@ func createUrl(config models.Config, searchText string) string {
 		AddParam("gws", "Выберите тип закупки").
 		// AddParam("publishDateFrom", "01.10.2025").
 		AddParam("applSubmissionCloseDateFrom", dateString).
-		AddParam("searchString", searchText)
+		AddParam("searchString", searchText).
+		AddParam("priceFromGeneral", strconv.Itoa(minPrice))
 
 	switch config.ProcurementType {
 	case "completed":

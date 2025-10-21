@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"regexp"
 	"sync"
@@ -12,6 +13,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+type parseResult struct {
+	name    string
+	tenders []models.Tender
+	err     error
+}
 
 func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -34,96 +41,99 @@ func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 
 		logger.SugaredLogger.Infof("config: %+v", config)
 
-		if config.SearchVent || config.SearchDoors || config.SearchMetal || config.SearchBuild {
-			var wg sync.WaitGroup
-			var mu sync.Mutex
+		// Канал для сбора результатов
+		resultChan := make(chan parseResult, 4)
+		var wg sync.WaitGroup
+		var errors []string
 
-			if config.SearchVent {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					tenders, err := parsergovru.ParseGovRu("vent", config, re)
-					if err != nil {
-						c.JSON(http.StatusInternalServerError, gin.H{
-							"error":   "Failed to create Excel file",
-							"details": err.Error(),
-						})
-						return
-					}
-					allTenders.Vent = tenders
-					stats["ventFound"] = len(tenders)
-					mu.Lock()
-					stats["totalFound"] += stats["ventFound"]
-					mu.Unlock()
-				}()
-			}
-
-			if config.SearchDoors {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					tenders, err := parsergovru.ParseGovRu("doors", config, re)
-					if err != nil {
-						c.JSON(http.StatusInternalServerError, gin.H{
-							"error":   "Failed to create Excel file",
-							"details": err.Error(),
-						})
-						return
-					}
-					allTenders.Doors = tenders
-					stats["doorsFound"] = len(tenders)
-					mu.Lock()
-					stats["totalFound"] += stats["doorsFound"]
-					mu.Unlock()
-				}()
-			}
-
-			if config.SearchBuild {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					tenders, err := parsergovru.ParseGovRu("build", config, re)
-					if err != nil {
-						c.JSON(http.StatusInternalServerError, gin.H{
-							"error":   "Failed to create Excel file",
-							"details": err.Error(),
-						})
-						return
-					}
-					allTenders.Build = tenders
-					stats["buildFound"] = len(tenders)
-					mu.Lock()
-					stats["totalFound"] += stats["buildFound"]
-					mu.Unlock()
-				}()
-			}
-
-			if config.SearchMetal {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					tenders, err := parsergovru.ParseGovRu("metal", config, re)
-					if err != nil {
-						c.JSON(http.StatusInternalServerError, gin.H{
-							"error":   "Failed to create Excel file",
-							"details": err.Error(),
-						})
-						return
-					}
-					allTenders.Metal = tenders
-					stats["metalFound"] = len(tenders)
-					mu.Lock()
-					stats["totalFound"] += stats["metalFound"]
-					mu.Unlock()
-				}()
-			}
-
-			wg.Wait()
-
+		if config.SearchVent {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				tenders, err := parsergovru.ParseGovRu("vent", config, re)
+				resultChan <- parseResult{name: "vent", tenders: tenders, err: err}
+			}()
 		}
 
-		if len(allTenders.Doors)+len(allTenders.Vent)+len(allTenders.Build)+len(allTenders.Metal) == 0 {
+		if config.SearchDoors {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				tenders, err := parsergovru.ParseGovRu("doors", config, re)
+				resultChan <- parseResult{name: "doors", tenders: tenders, err: err}
+			}()
+		}
+
+		if config.SearchBuild {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				tenders, err := parsergovru.ParseGovRu("build", config, re)
+				resultChan <- parseResult{name: "build", tenders: tenders, err: err}
+			}()
+		}
+
+		if config.SearchMetal {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				tenders, err := parsergovru.ParseGovRu("metal", config, re)
+				resultChan <- parseResult{name: "metal", tenders: tenders, err: err}
+			}()
+		}
+
+		go func() {
+			wg.Wait()
+			close(resultChan)
+		}()
+
+		for result := range resultChan {
+			if result.err != nil {
+				errors = append(errors, fmt.Sprintf("%s: %v", result.name, result.err))
+				continue
+			}
+
+			switch result.name {
+			case "vent":
+				allTenders.Vent = result.tenders
+				stats["ventFound"] = len(result.tenders)
+				stats["totalFound"] += len(result.tenders)
+			case "doors":
+				allTenders.Doors = result.tenders
+				stats["doorsFound"] = len(result.tenders)
+				stats["totalFound"] += len(result.tenders)
+			case "build":
+				allTenders.Build = result.tenders
+				stats["buildFound"] = len(result.tenders)
+				stats["totalFound"] += len(result.tenders)
+			case "metal":
+				allTenders.Metal = result.tenders
+				stats["metalFound"] = len(result.tenders)
+				stats["totalFound"] += len(result.tenders)
+			}
+		}
+
+		if len(errors) > 0 && stats["totalFound"] == 0 {
+			logger.SugaredLogger.Warnf("All parsing attempts failed: %v", errors)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to parse tenders from external source",
+				"details": fmt.Sprintf("Errors: %v", errors),
+				"stats":   stats,
+			})
+			return
+		}
+
+		if len(errors) > 0 {
+			logger.SugaredLogger.Warnf("Partial parsing errors (but some tenders found): %v", errors)
+		}
+
+		if stats["totalFound"] == 0 {
 			logger.SugaredLogger.Warn("0 tenders found")
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "No tenders found matching the criteria",
+				"stats": stats,
+			})
+			return
 		}
 
 		file, err := excel.ToExcel(*config, allTenders)
@@ -145,10 +155,16 @@ func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
+		response := gin.H{
 			"message":  "Excel file created successfully",
 			"stats":    stats,
 			"filename": "Закупки.xlsx",
-		})
+		}
+
+		if len(errors) > 0 {
+			response["warnings"] = errors
+		}
+
+		c.JSON(http.StatusOK, response)
 	}
 }
