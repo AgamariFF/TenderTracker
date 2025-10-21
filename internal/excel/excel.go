@@ -2,33 +2,41 @@ package excel
 
 import (
 	"strconv"
+	"tendertracker/internal/logger"
 	"tendertracker/internal/models"
 	"time"
 
 	"github.com/xuri/excelize/v2"
 )
 
-func ToExcel(config models.Config, allTenders *models.AllTenders) (*excelize.File, error) {
+func ToExcel(config models.Config, allTenders *models.TendersFromAllSites) (*excelize.File, error) {
 	excelFile := excelize.NewFile()
 
 	if config.SearchVent {
-		addTendersAndSheet(excelFile, allTenders.Vent, "Вентиляция")
-
+		if err := addTendersAndSheet(excelFile, allTenders.ZakupkiGovRu.Vent, allTenders.ZakupkiSber.Vent, "Вентиляция"); err != nil {
+			logger.SugaredLogger.Warn(err)
+		}
 	}
 	if config.SearchDoors {
-		addTendersAndSheet(excelFile, allTenders.Doors, "Двери")
+		if err := addTendersAndSheet(excelFile, allTenders.ZakupkiGovRu.Doors, allTenders.ZakupkiSber.Doors, "Двери"); err != nil {
+			logger.SugaredLogger.Warn(err)
+		}
 	}
 	if config.SearchBuild {
-		addTendersAndSheet(excelFile, allTenders.Build, "Строительство")
+		if err := addTendersAndSheet(excelFile, allTenders.ZakupkiGovRu.Build, allTenders.ZakupkiSber.Build, "Строительство"); err != nil {
+			logger.SugaredLogger.Warn(err)
+		}
 	}
 	if config.SearchMetal {
-		addTendersAndSheet(excelFile, allTenders.Metal, "Металл.")
+		if err := addTendersAndSheet(excelFile, allTenders.ZakupkiGovRu.Metal, allTenders.ZakupkiSber.Metal, "Металл."); err != nil {
+			logger.SugaredLogger.Warn(err)
+		}
 	}
 
 	return excelFile, nil
 }
 
-func addTendersAndSheet(f *excelize.File, tenders []models.Tender, sheet string) error {
+func addTendersAndSheet(f *excelize.File, tendersZakupkiGovRu, tendersSber []models.Tender, sheet string) error {
 	f.NewSheet(sheet)
 
 	index, _ := f.GetSheetIndex("Sheet1")
@@ -38,15 +46,52 @@ func addTendersAndSheet(f *excelize.File, tenders []models.Tender, sheet string)
 
 	CreateHeader(f, sheet)
 
-	for index, value := range tenders {
-		f.SetCellValue(sheet, "A"+strconv.Itoa(index+2), value.PublishDate)
-		f.SetCellValue(sheet, "B"+strconv.Itoa(index+2), value.EndDate)
-		f.SetCellValue(sheet, "C"+strconv.Itoa(index+2), value.Customer)
-		f.SetCellValue(sheet, "D"+strconv.Itoa(index+2), value.Title)
-		f.SetCellValue(sheet, "E"+strconv.Itoa(index+2), value.Price)
-
-		f.SetCellHyperLink(sheet, "D"+strconv.Itoa(index+2), value.Link, "External")
+	titleStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold: true,
+			Size: 18,
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+			Vertical:   "center",
+		},
+	})
+	if err != nil {
+		return err
 	}
+
+	err = f.MergeCell(sheet, "A2", "E2")
+	if err != nil {
+		return err
+	}
+
+	err = f.SetCellStyle(sheet, "A2", "E2", titleStyle)
+	if err != nil {
+		return err
+	}
+
+	f.SetCellValue(sheet, "A2", "Zakupki.Gov.ru")
+
+	index = 3
+
+	setTenderInf(f, sheet, tendersZakupkiGovRu, &index)
+
+	err = f.MergeCell(sheet, "A"+strconv.Itoa(index), "E"+strconv.Itoa(index))
+	if err != nil {
+		return err
+	}
+
+	err = f.SetCellStyle(sheet, "A"+strconv.Itoa(index), "E"+strconv.Itoa(index), titleStyle)
+	if err != nil {
+		return err
+	}
+
+	f.SetCellValue(sheet, "A"+strconv.Itoa(index), "Сбер-АСТ")
+	logger.SugaredLogger.Debugf("Added title Sber to sheet: %s to line: %s", sheet, index)
+
+	index++
+
+	setTenderInf(f, sheet, tendersSber, &index)
 
 	return nil
 }
@@ -90,4 +135,17 @@ func CreateHeader(f *excelize.File, sheet string) error {
 	f.SetCellValue(sheet, "F1", "Дата создания таблицы: "+time.Now().UTC().Format("02.01.2006"))
 
 	return nil
+}
+
+func setTenderInf(f *excelize.File, sheet string, tender []models.Tender, index *int) {
+	for _, value := range tender {
+		f.SetCellValue(sheet, "A"+strconv.Itoa(*index), value.PublishDate)
+		f.SetCellValue(sheet, "B"+strconv.Itoa(*index), value.EndDate)
+		f.SetCellValue(sheet, "C"+strconv.Itoa(*index), value.Customer)
+		f.SetCellValue(sheet, "D"+strconv.Itoa(*index), value.Title)
+		f.SetCellValue(sheet, "E"+strconv.Itoa(*index), value.Price)
+
+		f.SetCellHyperLink(sheet, "D"+strconv.Itoa(*index), value.Link, "External")
+		*index++
+	}
 }

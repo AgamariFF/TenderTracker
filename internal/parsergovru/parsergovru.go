@@ -105,7 +105,7 @@ func (p *Parser) ParseAllPages(name, baseURL string, re *regexp.Regexp, config *
 		url := urlgen.ReplaceURLParam(urlgen.ReplaceURLParam(baseURL, "pageNumber", strconv.Itoa(page)), "recordsPerPage", "_"+strconv.Itoa(quantityCards))
 
 		logger.SugaredLogger.Infof("%s: Парсинг страницы %d...\n", name, page)
-		logger.SugaredLogger.Info(url)
+		logger.SugaredLogger.Debug(url)
 
 		tenders, totalCards, err := p.ParsePage(name, url, re, config)
 		if err != nil {

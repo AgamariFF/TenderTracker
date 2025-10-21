@@ -7,6 +7,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type TendersFromAllSites struct {
+	ZakupkiGovRu AllTenders
+	ZakupkiSber  AllTenders
+}
+
 type AllTenders struct {
 	Vent  []Tender
 	Doors []Tender
@@ -27,11 +32,11 @@ type Config struct {
 	SearchVent        bool     `form:"search_vent"`
 	SearchDoors       bool     `form:"search_doors"`
 	SearchBuild       bool     `form:"search_build"`
-	SearchMetal       bool     `form:"search_metal`
+	SearchMetal       bool     `form:"search_metal"`
 	MinPriceVent      int      `form:"min_price_vent"`
 	MinPriceDoors     int      `form:"min_price_doors"`
 	MinPriceBuild     int      `form:"min_price_build"`
-	MinPriceMetal     int      `form:"min_price_metal`
+	MinPriceMetal     int      `form:"min_price_metal"`
 	VentCustomerPlace []string `form:"vent_customer_place"` // размещение для всех, не только вентиляции
 	VentDelKladrIds   []string `form:"vent_del_kladr_ids"`
 	ProcurementType   string   `form:"procurement_type"`

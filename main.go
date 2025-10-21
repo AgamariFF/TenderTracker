@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	logger.InitLogger("info")
+	logger.InitLogger("debug")
 	defer logger.Close()
 
 	re, err := loadFilterPatterns("filter_patterns_vent.txt")

@@ -59,14 +59,3 @@ func ReplaceURLParam(urlStr, param, value string) string {
 
 	return u.String()
 }
-
-const (
-	DFO  = "OKER36"
-	PFO  = "OKER33"
-	SZFO = "OKER31"
-	SKFO = "OKER38"
-	SFO  = "OKER35"
-	YFO  = "OKER34"
-	CFO  = "OKER30"
-	UFO  = "OKER37"
-)
