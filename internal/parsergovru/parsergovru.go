@@ -30,73 +30,70 @@ func NewParser() *Parser {
 }
 
 func ParseGovRu(name string, config *models.Config, re *regexp.Regexp) ([]models.Tender, error) {
-
 	switch name {
 	case "vent":
-		url := createUrl(*config, "вентиляции", config.MinPriceVent)
-
-		tenders, err := NewParser().ParseAllPages(name, url, re, config)
-		if err != nil {
-			return tenders, err
-		}
-		return tenders, nil
+		return parseSingleCategory(config, "вентиляции", config.MinPriceVent, name, re)
 
 	case "doors":
-		url := createUrl(*config, "монтаж двер", config.MinPriceDoors)
-
-		tenders, err := NewParser().ParseAllPages(name, url, re, config)
-		if err != nil {
-			return tenders, err
-		}
-		return tenders, nil
+		return parseMultipleCategories(config, []string{
+			"монтаж двер",
+			"дверны блок",
+			"установ двер",
+			"замен двер",
+		}, config.MinPriceDoors, name, re)
 
 	case "build":
-		var wg sync.WaitGroup
-		var mu sync.Mutex
-
-		var allErrors []string
-		var allTenders []models.Tender
-
-		parseInGoroutine := func(searchString string, suffix string) {
-			defer wg.Done()
-
-			url := createUrl(*config, searchString, config.MinPriceBuild)
-
-			tenders, err := NewParser().ParseAllPages(name+suffix, url, re, config)
-
-			mu.Lock()
-			if err != nil {
-				allErrors = append(allErrors, fmt.Sprintf("%s: %v", searchString, err))
-			} else {
-				allTenders = append(allTenders, tenders...)
-			}
-			mu.Unlock()
-		}
-
-		wg.Add(3)
-		go parseInGoroutine("реконструкция здания", "0")
-		go parseInGoroutine("строительство здания", "1")
-		go parseInGoroutine("капитальный ремонт здания", "2")
-		wg.Wait()
-
-		if len(allErrors) > 0 {
-			return allTenders, fmt.Errorf("build search failed: %s", strings.Join(allErrors, "; "))
-		}
-
-		tenders := mergeTendersWithoutDuplicates(allTenders)
-		return tenders, nil
+		return parseMultipleCategories(config, []string{
+			"реконструкция здания",
+			"строительство здания",
+			"капитальный ремонт здания",
+		}, config.MinPriceBuild, name, re)
 
 	case "metal":
-		url := createUrl(*config, "изготовление металлоконструкц", config.MinPriceMetal)
-
-		tenders, err := NewParser().ParseAllPages(name, url, re, config)
-		if err != nil {
-			return tenders, err
-		}
-		return tenders, nil
+		return parseSingleCategory(config, "изготовление металлоконструкц", config.MinPriceMetal, name, re)
 	}
 
-	return nil, fmt.Errorf("Incorrect parametrs")
+	return nil, fmt.Errorf("incorrect parameters")
+}
+
+func parseSingleCategory(config *models.Config, searchString string, minPrice int, name string, re *regexp.Regexp) ([]models.Tender, error) {
+	url := createUrl(*config, searchString, minPrice)
+	return NewParser().ParseAllPages(name, url, re, config)
+}
+
+func parseMultipleCategories(config *models.Config, searchStrings []string, minPrice int, name string, re *regexp.Regexp) ([]models.Tender, error) {
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	var allErrors []string
+	var allTenders []models.Tender
+
+	parseInGoroutine := func(searchString string, suffix string) {
+		defer wg.Done()
+
+		url := createUrl(*config, searchString, minPrice)
+		tenders, err := NewParser().ParseAllPages(name+suffix, url, re, config)
+
+		mu.Lock()
+		if err != nil {
+			allErrors = append(allErrors, fmt.Sprintf("%s: %v", searchString, err))
+		} else {
+			allTenders = append(allTenders, tenders...)
+		}
+		mu.Unlock()
+	}
+
+	wg.Add(len(searchStrings))
+	for i, searchString := range searchStrings {
+		go parseInGoroutine(searchString, strconv.Itoa(i))
+	}
+	wg.Wait()
+
+	if len(allErrors) > 0 {
+		return allTenders, fmt.Errorf("%s search failed: %s", name, strings.Join(allErrors, "; "))
+	}
+
+	return mergeTendersWithoutDuplicates(allTenders), nil
 }
 
 func (p *Parser) ParseAllPages(name, baseURL string, re *regexp.Regexp, config *models.Config) ([]models.Tender, error) {
