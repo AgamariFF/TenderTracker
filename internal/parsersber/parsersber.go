@@ -270,9 +270,32 @@ func (p *Parser) parseTenderHit(name string, hit Hit, re *regexp.Regexp, config 
 		tender.Title = hit.Source.BidName
 	}
 
-	if re.MatchString(strings.ToLower(tender.Title)) ||
-		!regexp.MustCompile(`вент|двер|здан|строит|изготов|монтаж`).MatchString(strings.ToLower(tender.Title)) {
-		return models.Tender{}
+	if strings.Contains(name, "vent") {
+		if re.MatchString(strings.ToLower(tender.Title)) ||
+			!regexp.MustCompile(`вент`).MatchString(strings.ToLower(tender.Title)) {
+			return models.Tender{}
+		}
+	}
+
+	if strings.Contains(name, "doors") {
+		if re.MatchString(strings.ToLower(tender.Title)) ||
+			!regexp.MustCompile(`двер`).MatchString(strings.ToLower(tender.Title)) {
+			return models.Tender{}
+		}
+	}
+
+	if strings.Contains(name, "build") {
+		if re.MatchString(strings.ToLower(tender.Title)) ||
+			!regexp.MustCompile(`реконстру|строит|капит|ремонт`).MatchString(strings.ToLower(tender.Title)) {
+			return models.Tender{}
+		}
+	}
+
+	if strings.Contains(name, "metal") {
+		if re.MatchString(strings.ToLower(tender.Title)) ||
+			!regexp.MustCompile(`производ|изготов|монтаж металл`).MatchString(strings.ToLower(tender.Title)) {
+			return models.Tender{}
+		}
 	}
 
 	tender.Price = formatPrice(hit.Source.PurchAmount)
@@ -286,8 +309,6 @@ func (p *Parser) parseTenderHit(name string, hit Hit, re *regexp.Regexp, config 
 	} else if hit.Source.SourceHrefTerm != "" {
 		tender.Link = hit.Source.SourceHrefTerm
 	}
-
-	logger.SugaredLogger.Debugf("%+v", tender)
 
 	return tender
 }

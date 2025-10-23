@@ -197,6 +197,8 @@ func (p *Parser) parseTenderCard(name string, s *goquery.Selection, re *regexp.R
 	// Название
 	tender.Title = strings.TrimSpace(s.Find(".registry-entry__body-value").Text())
 
+	// logger.SugaredLogger.Debugf(s.Text())
+
 	if re.MatchString(strings.ToLower(tender.Title)) {
 		return models.Tender{}
 	}
