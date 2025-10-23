@@ -23,6 +23,10 @@ type parseResult struct {
 
 func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var doSber, doZakupki bool
+		doSber = true
+		doZakupki = true
+
 		logger.SugaredLogger.Infof("Starting search tenders.")
 		allTenders := &models.TendersFromAllSites{}
 		config := &models.Config{}
@@ -36,22 +40,28 @@ func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 			return
 		}
 
-		var statsZakupkiGovRu map[string]int
 		var statsSber map[string]int
+		var statsZakupkiGovRu map[string]int
 		var err error
 		var errors []error
 
 		logger.SugaredLogger.Infof("config: %+v", config)
 
-		allTenders.ZakupkiGovRu, statsZakupkiGovRu, err = SearchFromZakupkigovru(re, config)
-		if err != nil {
-			logger.SugaredLogger.Warn(err)
-			errors = append(errors, err)
+		if doZakupki {
+
+			allTenders.ZakupkiGovRu, statsZakupkiGovRu, err = SearchFromZakupkigovru(re, config)
+			if err != nil {
+				logger.SugaredLogger.Warn(err)
+				errors = append(errors, err)
+			}
 		}
-		allTenders.ZakupkiSber, statsSber, err = SearchFromSber(re, config)
-		if err != nil {
-			logger.SugaredLogger.Warn(err)
-			errors = append(errors, err)
+
+		if doSber {
+			allTenders.ZakupkiSber, statsSber, err = SearchFromSber(re, config)
+			if err != nil {
+				logger.SugaredLogger.Warn(err)
+				errors = append(errors, err)
+			}
 		}
 
 		stats := mergeMaps(statsSber, statsZakupkiGovRu)

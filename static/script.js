@@ -118,65 +118,110 @@ function showSuccess(data) {
         
         let statsHTML = '<div class="row">';
 
-        if (data.stats.totalFound !== undefined) {
+        // Общая статистика по всем источникам
+        if (data.stats.totalFoundZakupkiGovRu !== undefined || data.stats.totalFoundSber !== undefined) {
+            const totalZakupki = data.stats.totalFoundZakupkiGovRu || 0;
+            const totalSber = data.stats.totalFoundSber || 0;
+            const totalAll = totalZakupki + totalSber;
+            
             statsHTML += `
                 <div class="col-md-4">
                     <div class="card bg-light">
                         <div class="card-body text-center">
-                            <h4 class="text-success">${data.stats.totalFound}</h4>
+                            <h4 class="text-success">${totalAll}</h4>
                             <small class="text-muted">Всего найдено закупок</small>
+                            <div class="mt-2">
+                                <small class="text-primary">Zakupki.gov.ru: ${totalZakupki}</small><br>
+                                <small class="text-info">Sber-AST: ${totalSber}</small>
+                            </div>
                         </div>
                     </div>
                 </div>
             `;
         }
 
+        // Статистика по вентиляции
         if (searchVent) {
+            const ventZakupki = data.stats.ventFoundZakupkiGovRu || 0;
+            const ventSber = data.stats.ventFoundSber || 0;
+            const ventTotal = ventZakupki + ventSber;
+            
             statsHTML += `
                 <div class="col-md-4">
                     <div class="card bg-light">
                         <div class="card-body text-center">
-                            <h4 class="text-primary">${data.stats.ventFound}</h4>
+                            <h4 class="text-primary">${ventTotal}</h4>
                             <small class="text-muted">Найдено закупок по вентиляции</small>
+                            <div class="mt-2">
+                                <small class="text-primary">Zakupki.gov.ru: ${ventZakupki}</small><br>
+                                <small class="text-info">Sber-AST: ${ventSber}</small>
+                            </div>
                         </div>
                     </div>
                 </div>
             `;
         }
 
+        // Статистика по дверям
         if (searchDoors) {
+            const doorsZakupki = data.stats.doorsFoundZakupkiGovRu || 0;
+            const doorsSber = data.stats.doorsFoundSber || 0;
+            const doorsTotal = doorsZakupki + doorsSber;
+            
             statsHTML += `
                 <div class="col-md-4">
                     <div class="card bg-light">
                         <div class="card-body text-center">
-                            <h4 class="text-primary">${data.stats.doorsFound}</h4>
+                            <h4 class="text-primary">${doorsTotal}</h4>
                             <small class="text-muted">Найдено закупок по монтажу дверей</small>
+                            <div class="mt-2">
+                                <small class="text-primary">Zakupki.gov.ru: ${doorsZakupki}</small><br>
+                                <small class="text-info">Sber-AST: ${doorsSber}</small>
+                            </div>
                         </div>
                     </div>
                 </div>
             `;
         }
 
+        // Статистика по строительству
         if (searchBuild) {
+            const buildZakupki = data.stats.buildFoundZakupkiGovRu || 0;
+            const buildSber = data.stats.buildFoundSber || 0;
+            const buildTotal = buildZakupki + buildSber;
+            
             statsHTML += `
                 <div class="col-md-4">
                     <div class="card bg-light">
                         <div class="card-body text-center">
-                            <h4 class="text-primary">${data.stats.buildFound}</h4>
+                            <h4 class="text-primary">${buildTotal}</h4>
                             <small class="text-muted">Найдено закупок по строительству/реконструкции</small>
+                            <div class="mt-2">
+                                <small class="text-primary">Zakupki.gov.ru: ${buildZakupki}</small><br>
+                                <small class="text-info">Sber-AST: ${buildSber}</small>
+                            </div>
                         </div>
                     </div>
                 </div>
             `;
         }
 
+        // Статистика по металлоконструкциям
         if (searchMetal) {
+            const metalZakupki = data.stats.metalFoundZakupkiGovRu || 0;
+            const metalSber = data.stats.metalFoundSber || 0;
+            const metalTotal = metalZakupki + metalSber;
+            
             statsHTML += `
                 <div class="col-md-4">
                     <div class="card bg-light">
                         <div class="card-body text-center">
-                            <h4 class="text-primary">${data.stats.metalFound}</h4>
+                            <h4 class="text-primary">${metalTotal}</h4>
                             <small class="text-muted">Найдено закупок по поставке металлоконструкций</small>
+                            <div class="mt-2">
+                                <small class="text-primary">Zakupki.gov.ru: ${metalZakupki}</small><br>
+                                <small class="text-info">Sber-AST: ${metalSber}</small>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -184,6 +229,74 @@ function showSuccess(data) {
         }
 
         statsHTML += '</div>';
+        
+        // Добавляем сводную таблицу по источникам
+        statsHTML += `
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Сводная статистика по источникам</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-sm">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Категория</th>
+                                            <th class="text-center">Zakupki.gov.ru</th>
+                                            <th class="text-center">Sber-AST</th>
+                                            <th class="text-center">Всего</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${searchVent ? `
+                                        <tr>
+                                            <td>Вентиляция</td>
+                                            <td class="text-center">${data.stats.ventFoundZakupkiGovRu || 0}</td>
+                                            <td class="text-center">${data.stats.ventFoundSber || 0}</td>
+                                            <td class="text-center fw-bold">${(data.stats.ventFoundZakupkiGovRu || 0) + (data.stats.ventFoundSber || 0)}</td>
+                                        </tr>
+                                        ` : ''}
+                                        ${searchDoors ? `
+                                        <tr>
+                                            <td>Монтаж дверей</td>
+                                            <td class="text-center">${data.stats.doorsFoundZakupkiGovRu || 0}</td>
+                                            <td class="text-center">${data.stats.doorsFoundSber || 0}</td>
+                                            <td class="text-center fw-bold">${(data.stats.doorsFoundZakupkiGovRu || 0) + (data.stats.doorsFoundSber || 0)}</td>
+                                        </tr>
+                                        ` : ''}
+                                        ${searchBuild ? `
+                                        <tr>
+                                            <td>Строительство/Реконструкция</td>
+                                            <td class="text-center">${data.stats.buildFoundZakupkiGovRu || 0}</td>
+                                            <td class="text-center">${data.stats.buildFoundSber || 0}</td>
+                                            <td class="text-center fw-bold">${(data.stats.buildFoundZakupkiGovRu || 0) + (data.stats.buildFoundSber || 0)}</td>
+                                        </tr>
+                                        ` : ''}
+                                        ${searchMetal ? `
+                                        <tr>
+                                            <td>Металлоконструкции</td>
+                                            <td class="text-center">${data.stats.metalFoundZakupkiGovRu || 0}</td>
+                                            <td class="text-center">${data.stats.metalFoundSber || 0}</td>
+                                            <td class="text-center fw-bold">${(data.stats.metalFoundZakupkiGovRu || 0) + (data.stats.metalFoundSber || 0)}</td>
+                                        </tr>
+                                        ` : ''}
+                                        <tr class="table-primary">
+                                            <td class="fw-bold">ИТОГО</td>
+                                            <td class="text-center fw-bold">${data.stats.totalFoundZakupkiGovRu || 0}</td>
+                                            <td class="text-center fw-bold">${data.stats.totalFoundSber || 0}</td>
+                                            <td class="text-center fw-bold">${(data.stats.totalFoundZakupkiGovRu || 0) + (data.stats.totalFoundSber || 0)}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
         statsElement.innerHTML = statsHTML;
     } else {
         statsElement.style.display = 'none';

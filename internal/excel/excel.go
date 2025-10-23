@@ -123,16 +123,18 @@ func CreateHeader(f *excelize.File, sheet string) error {
 	}
 
 	f.SetColWidth(sheet, "A", "B", 16)
-	f.SetColWidth(sheet, "C", "C", 40)
-	f.SetColWidth(sheet, "D", "D", 100)
-	f.SetColWidth(sheet, "E", "E", 20)
+	f.SetColWidth(sheet, "C", "C", 34)
+	f.SetColWidth(sheet, "D", "D", 40)
+	f.SetColWidth(sheet, "E", "E", 100)
+	f.SetColWidth(sheet, "F", "F", 20)
 	f.SetCellValue(sheet, "A1", "Дата размещения")
 	f.SetCellValue(sheet, "B1", "Дата окончания")
-	f.SetCellValue(sheet, "C1", "Заказчик")
-	f.SetCellValue(sheet, "D1", "Объект закупки + ссылка")
-	f.SetCellValue(sheet, "E1", "Начальная цена")
-	f.SetCellStyle(sheet, "A1", "E1", style)
-	f.SetCellValue(sheet, "F1", "Дата создания таблицы: "+time.Now().UTC().Format("02.01.2006"))
+	f.SetCellValue(sheet, "C1", "Расположение")
+	f.SetCellValue(sheet, "D1", "Заказчик")
+	f.SetCellValue(sheet, "E1", "Объект закупки + ссылка")
+	f.SetCellValue(sheet, "F1", "Начальная цена")
+	f.SetCellStyle(sheet, "A1", "F1", style)
+	f.SetCellValue(sheet, "G1", "Дата создания таблицы: "+time.Now().UTC().Format("02.01.2006"))
 
 	return nil
 }
@@ -141,11 +143,12 @@ func setTenderInf(f *excelize.File, sheet string, tender []models.Tender, index 
 	for _, value := range tender {
 		f.SetCellValue(sheet, "A"+strconv.Itoa(*index), value.PublishDate)
 		f.SetCellValue(sheet, "B"+strconv.Itoa(*index), value.EndDate)
-		f.SetCellValue(sheet, "C"+strconv.Itoa(*index), value.Customer)
-		f.SetCellValue(sheet, "D"+strconv.Itoa(*index), value.Title)
-		f.SetCellValue(sheet, "E"+strconv.Itoa(*index), value.Price)
+		f.SetCellValue(sheet, "C"+strconv.Itoa(*index), value.Region)
+		f.SetCellValue(sheet, "D"+strconv.Itoa(*index), value.Customer)
+		f.SetCellValue(sheet, "E"+strconv.Itoa(*index), value.Title)
+		f.SetCellValue(sheet, "F"+strconv.Itoa(*index), value.Price)
 
-		f.SetCellHyperLink(sheet, "D"+strconv.Itoa(*index), value.Link, "External")
+		f.SetCellHyperLink(sheet, "E"+strconv.Itoa(*index), value.Link, "External")
 		*index++
 	}
 }

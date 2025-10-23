@@ -26,6 +26,7 @@ type Tender struct {
 	PublishDate string
 	EndDate     string
 	Link        string
+	Region      string `json:"region"` // Добавьте это поле
 }
 
 type Config struct {

@@ -29,6 +29,33 @@ func NewParser() *Parser {
 	}
 }
 
+// Карта соответствия кодов ФО и их названий
+var FederalDistrictCodes = map[string]string{
+	"OKER32": "Центральный ФО",
+	"OKER33": "Северо-Западный ФО",
+	"OKER34": "Южный ФО",
+	"OKER35": "Северо-Кавказский ФО",
+	"OKER36": "Приволжский ФО",
+	"OKER37": "Уральский ФО",
+	"OKER38": "Сибирский ФО",
+	"OKER39": "Дальневосточный ФО",
+}
+
+// ConvertDistrictCodesToRegions преобразует коды ФО в список регионов
+func ConvertDistrictCodesToRegions(codes []string) []string {
+	var allRegions []string
+
+	for _, code := range codes {
+		if districtName, exists := FederalDistrictCodes[code]; exists {
+			if regions, ok := FederalDistricts[districtName]; ok {
+				allRegions = append(allRegions, regions...)
+			}
+		}
+	}
+
+	return allRegions
+}
+
 func ParseSberAst(name string, config *models.Config, re *regexp.Regexp) ([]models.Tender, error) {
 	switch name {
 	case "vent":
@@ -36,8 +63,10 @@ func ParseSberAst(name string, config *models.Config, re *regexp.Regexp) ([]mode
 
 	case "doors":
 		return parseMultipleCategories(config, []string{
-			"двер",
-			"дверны",
+			"монтаж двер",
+			"дверны блок",
+			"установ двер",
+			"замен двер",
 		}, config.MinPriceDoors, name, re)
 
 	case "build":
@@ -98,7 +127,7 @@ func (p *Parser) ParseAllPages(name string, searchRequest ElasticRequest, re *re
 	var allTenders []models.Tender
 	pageSize := 20
 	from := 0
-	maxPages := 50 // Ограничиваем 50 страницами (1000 тендеров)
+	maxPages := 50
 
 	for page := 1; page <= maxPages; page++ {
 		searchRequest.From = from
@@ -111,7 +140,6 @@ func (p *Parser) ParseAllPages(name string, searchRequest ElasticRequest, re *re
 			return nil, fmt.Errorf("%s: ошибка на странице %d: %w", name, page, err)
 		}
 
-		// Если страница пустая - останавливаемся
 		if len(tenders) == 0 {
 			logger.SugaredLogger.Infof("%s: Пустая страница %d, завершаем парсинг", name, page)
 			break
@@ -122,13 +150,11 @@ func (p *Parser) ParseAllPages(name string, searchRequest ElasticRequest, re *re
 		logger.SugaredLogger.Infof("%s: Страница %d: найдено %d тендеров, распарсено %d, всего: %d",
 			name, page, totalHits, len(tenders), len(allTenders))
 
-		// Останавливаемся если достигли лимита страниц
 		if page >= maxPages {
 			logger.SugaredLogger.Infof("%s: Достигнут лимит в %d страниц", name, maxPages)
 			break
 		}
 
-		// Останавливаемся если достигли общего количества (когда оно реальное)
 		if totalHits < 10000 && from+pageSize >= totalHits {
 			logger.SugaredLogger.Infof("%s: Достигнут конец данных", name)
 			break
@@ -142,56 +168,22 @@ func (p *Parser) ParseAllPages(name string, searchRequest ElasticRequest, re *re
 	return allTenders, nil
 }
 
-// Функция для определения условий остановки парсинга
-func shouldStopParsing(from, pageSize, totalHits, currentPageTenders, currentPage, maxPages int) bool {
-	// Если достигли максимального количества страниц
-	if currentPage >= maxPages {
-		logger.SugaredLogger.Infof("Остановка: достигнут лимит в %d страниц", maxPages)
-		return true
-	}
-
-	// Если на текущей странице меньше половины ожидаемых тендеров (возможно, конец данных)
-	if currentPageTenders < pageSize/2 && currentPage > 5 {
-		logger.SugaredLogger.Infof("Остановка: на странице только %d тендеров из %d", currentPageTenders, pageSize)
-		return true
-	}
-
-	// Если API возвращает 10000 (максимум), но мы уже далеко прошли
-	if totalHits == 10000 && from > 5000 && currentPageTenders == 0 {
-		logger.SugaredLogger.Infof("Остановка: достигнут предел данных API при from=%d", from)
-		return true
-	}
-
-	// Стандартное условие - если достигли общего количества
-	if from+pageSize >= totalHits && totalHits < 10000 {
-		logger.SugaredLogger.Infof("Остановка: достигнут конец данных (from=%d, totalHits=%d)", from, totalHits)
-		return true
-	}
-
-	return false
-}
-
 func (p *Parser) ParsePage(name string, searchRequest ElasticRequest, re *regexp.Regexp, config *models.Config, minPrice int) ([]models.Tender, int, error) {
 	var resp *http.Response
 	var err error
 
-	// Конвертируем XML запрос в строку
 	xmlData, err := xml.Marshal(searchRequest)
 	if err != nil {
 		return nil, 0, fmt.Errorf("ошибка маршалинга XML: %w", err)
 	}
 
-	// Создаем форму данных как в ручном запросе
 	formData := url.Values{}
 	formData.Add("xmlData", string(xmlData))
 	formData.Add("orgId", "0")
 	formData.Add("targetPageCode", "UnitedPurchaseList")
 	formData.Add("PID", "0")
 
-	// Кодируем данные для тела запроса
 	body := strings.NewReader(formData.Encode())
-
-	// Правильный URL из вашего ручного запроса
 	baseURL := "https://sberbank-ast.ru/SearchQuery.aspx"
 
 	for attempt := 1; attempt <= 3; attempt++ {
@@ -200,14 +192,12 @@ func (p *Parser) ParsePage(name string, searchRequest ElasticRequest, re *regexp
 			return nil, 0, fmt.Errorf("ошибка создания запроса: %w", err)
 		}
 
-		// Устанавливаем правильные заголовки для формы
 		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 		req.Header.Set("Accept", "application/json, text/plain, */*")
 		req.Header.Set("Accept-Language", "ru-RU,ru;q=0.9,en;q=0.8")
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
 		req.Header.Set("X-Requested-With", "XMLHttpRequest")
 
-		// Добавляем параметр name в URL как в ручном запросе
 		q := req.URL.Query()
 		q.Add("name", "Main")
 		req.URL.RawQuery = q.Encode()
@@ -280,7 +270,8 @@ func (p *Parser) parseTenderHit(name string, hit Hit, re *regexp.Regexp, config 
 		tender.Title = hit.Source.BidName
 	}
 
-	if re.MatchString(strings.ToLower(tender.Title)) {
+	if re.MatchString(strings.ToLower(tender.Title)) ||
+		!regexp.MustCompile(`вент|двер|здан|строит|изготов|монтаж`).MatchString(strings.ToLower(tender.Title)) {
 		return models.Tender{}
 	}
 
@@ -288,12 +279,15 @@ func (p *Parser) parseTenderHit(name string, hit Hit, re *regexp.Regexp, config 
 	tender.PublishDate = hit.Source.PublicDate
 	tender.Customer = hit.Source.OrgName
 	tender.EndDate = hit.Source.EndDate
+	tender.Region = hit.Source.RegionNameTerm
 
 	if hit.Source.ObjectHrefTerm != "" {
 		tender.Link = hit.Source.ObjectHrefTerm
 	} else if hit.Source.SourceHrefTerm != "" {
 		tender.Link = hit.Source.SourceHrefTerm
 	}
+
+	logger.SugaredLogger.Debugf("%+v", tender)
 
 	return tender
 }
@@ -302,10 +296,50 @@ func formatPrice(amount float64) string {
 	if amount == 0 {
 		return "Не указана"
 	}
-	return fmt.Sprintf("%.2f руб.", amount)
+
+	str := fmt.Sprintf("%.2f", amount)
+
+	parts := strings.Split(str, ".")
+	integerPart := parts[0]
+	decimalPart := parts[1]
+
+	var formattedInteger strings.Builder
+	count := 0
+
+	for i := len(integerPart) - 1; i >= 0; i-- {
+		if count > 0 && count%3 == 0 {
+			formattedInteger.WriteByte(' ')
+		}
+		formattedInteger.WriteByte(integerPart[i])
+		count++
+	}
+
+	integerChars := []rune(formattedInteger.String())
+	for i, j := 0, len(integerChars)-1; i < j; i, j = i+1, j-1 {
+		integerChars[i], integerChars[j] = integerChars[j], integerChars[i]
+	}
+
+	return string(integerChars) + "," + decimalPart + " ₽"
 }
 
 func createSearchRequest(searchText string, minPrice int, config *models.Config, from, size int) ElasticRequest {
+	// Преобразуем коды ФО в список регионов
+	var regions []string
+	if len(config.VentDelKladrIds) > 0 {
+		regions = ConvertDistrictCodesToRegions(config.VentDelKladrIds)
+		logger.SugaredLogger.Infof("Преобразовано кодов ФО: %v в регионы: %v", config.VentDelKladrIds, regions)
+	}
+
+	regionValue := ""
+	regionVisiblePart := ""
+
+	if len(regions) > 0 {
+		// Форматируем регионы в нужном формате: "Регион1|;|Регион2|;|Регион3"
+		regionValue = strings.Join(regions, "|;|")
+		regionVisiblePart = strings.Join(regions, ",")
+		logger.SugaredLogger.Infof("Установлен фильтр регионов: %s", regionVisiblePart)
+	}
+
 	searchRequest := ElasticRequest{
 		PersonID: 0,
 		BUID:     0,
@@ -322,7 +356,6 @@ func createSearchRequest(searchText string, minPrice int, config *models.Config,
 				MinValue: "",
 				MaxValue: "",
 			},
-			// ДОБАВЛЕНО: Фильтр по стадии закупки - только "Опубликовано" и "Подача заявок"
 			PurchaseStageTerm: PurchaseStageTerm{
 				Value:       "Опубликовано|;|Подача заявок",
 				VisiblePart: "Опубликовано,Подача заявок",
@@ -331,9 +364,10 @@ func createSearchRequest(searchText string, minPrice int, config *models.Config,
 				Value:       "",
 				VisiblePart: "",
 			},
+			// ДОБАВЛЕНО: Фильтр по регионам
 			RegionNameTerm: RegionNameTerm{
-				Value:       "",
-				VisiblePart: "",
+				Value:       regionValue,
+				VisiblePart: regionVisiblePart,
 			},
 			RequestStartDate: DateFilter{
 				MinValue: "",
@@ -410,7 +444,7 @@ func createSearchRequest(searchText string, minPrice int, config *models.Config,
 			"RequestAcceptDate", "EndDate", "CreateRequestHrefTerm",
 			"CreateRequestAlowed", "purchName", "BidName", "SourceHrefTerm",
 			"objectHrefTerm", "needPayment", "IsSMP", "isIncrease",
-			"isHasComplaint", "isPurchCostDetails", "purchType",
+			"isHasComplaint", "isPurchCostDetails", "purchType", "RegionNameTerm", // Добавлен RegionNameTerm
 		},
 		Sort: Sort{
 			Value: "default",
@@ -478,6 +512,7 @@ type Hit struct {
 		SourceHrefTerm   string  `json:"SourceHrefTerm"`
 		PurchaseTypeName string  `json:"PurchaseTypeName"`
 		PurchStateName   string  `json:"purchStateName"`
+		RegionNameTerm   string  `json:"RegionNameTerm"` // Добавлено поле региона
 	} `json:"_source"`
 }
 
