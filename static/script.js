@@ -95,11 +95,25 @@ document.getElementById('searchForm').addEventListener('submit', function(e) {
             showError(data.error);
         } else {
             showSuccess(data);
+            // Прокрутка вниз после успешного поиска
+            setTimeout(() => {
+                window.scrollTo({
+                    top: document.body.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }, 100);
         }
     })
     .catch(error => {
         document.getElementById('loadingSection').style.display = 'none';
         showError('Ошибка сети: ' + error.message);
+        // Прокрутка вниз при ошибке
+        setTimeout(() => {
+            window.scrollTo({
+                top: document.body.scrollHeight,
+                behavior: 'smooth'
+            });
+        }, 100);
     });
 });
 
@@ -230,7 +244,6 @@ function showSuccess(data) {
 
         statsHTML += '</div>';
         
-        // Добавляем сводную таблицу по источникам
         statsHTML += `
             <div class="row mt-4">
                 <div class="col-12">

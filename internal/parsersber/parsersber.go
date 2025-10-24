@@ -202,9 +202,6 @@ func (p *Parser) ParsePage(name string, searchRequest ElasticRequest, re *regexp
 		q.Add("name", "Main")
 		req.URL.RawQuery = q.Encode()
 
-		logger.SugaredLogger.Debugf("URL: %s", req.URL.String())
-		logger.SugaredLogger.Debugf("Form Data: %s", formData.Encode())
-
 		resp, err = p.client.Do(req)
 		if err == nil {
 			break
@@ -346,9 +343,9 @@ func formatPrice(amount float64) string {
 func createSearchRequest(searchText string, minPrice int, config *models.Config, from, size int) ElasticRequest {
 	// Преобразуем коды ФО в список регионов
 	var regions []string
-	if len(config.VentDelKladrIds) > 0 {
-		regions = ConvertDistrictCodesToRegions(config.VentDelKladrIds)
-		logger.SugaredLogger.Infof("Преобразовано кодов ФО: %v в регионы: %v", config.VentDelKladrIds, regions)
+	if len(config.VentCustomerPlace) > 0 {
+		regions = ConvertDistrictCodesToRegions(config.VentCustomerPlace)
+		logger.SugaredLogger.Infof("Преобразовано кодов ФО: %v в регионы: %v", config.VentCustomerPlace, regions)
 	}
 
 	regionValue := ""
@@ -359,6 +356,29 @@ func createSearchRequest(searchText string, minPrice int, config *models.Config,
 		regionValue = strings.Join(regions, "|;|")
 		regionVisiblePart = strings.Join(regions, ",")
 		logger.SugaredLogger.Infof("Установлен фильтр регионов: %s", regionVisiblePart)
+	}
+
+	// Настройка фильтра по этапу проведения в зависимости от типа закупок
+	var purchaseStageValue, purchaseStageVisiblePart string
+
+	switch config.ProcurementType {
+	case "active":
+		// Активные закупки: Опубликовано + Подача заявок
+		purchaseStageValue = "Опубликовано|;|Подача заявок"
+		purchaseStageVisiblePart = "Опубликовано,Подача заявок"
+		logger.SugaredLogger.Infof("Поиск активных закупок: %s", purchaseStageVisiblePart)
+
+	case "completed":
+		// Завершенные закупки: Завершено + Подача заявок
+		purchaseStageValue = "Завершено|;|Подача заявок"
+		purchaseStageVisiblePart = "Завершено,Подача заявок"
+		logger.SugaredLogger.Infof("Поиск завершенных закупок: %s", purchaseStageVisiblePart)
+
+	default:
+		// По умолчанию ищем активные закупки
+		purchaseStageValue = "Опубликовано|;|Подача заявок"
+		purchaseStageVisiblePart = "Опубликовано,Подача заявок"
+		logger.SugaredLogger.Infof("Тип закупок не указан, используем активные: %s", purchaseStageVisiblePart)
 	}
 
 	searchRequest := ElasticRequest{
@@ -378,8 +398,8 @@ func createSearchRequest(searchText string, minPrice int, config *models.Config,
 				MaxValue: "",
 			},
 			PurchaseStageTerm: PurchaseStageTerm{
-				Value:       "Опубликовано|;|Подача заявок",
-				VisiblePart: "Опубликовано,Подача заявок",
+				Value:       purchaseStageValue,
+				VisiblePart: purchaseStageVisiblePart,
 			},
 			SourceTerm: SourceTerm{
 				Value:       "",
@@ -465,7 +485,7 @@ func createSearchRequest(searchText string, minPrice int, config *models.Config,
 			"RequestAcceptDate", "EndDate", "CreateRequestHrefTerm",
 			"CreateRequestAlowed", "purchName", "BidName", "SourceHrefTerm",
 			"objectHrefTerm", "needPayment", "IsSMP", "isIncrease",
-			"isHasComplaint", "isPurchCostDetails", "purchType", "RegionNameTerm", // Добавлен RegionNameTerm
+			"isHasComplaint", "isPurchCostDetails", "purchType", "RegionNameTerm",
 		},
 		Sort: Sort{
 			Value: "default",
@@ -479,10 +499,8 @@ func createSearchRequest(searchText string, minPrice int, config *models.Config,
 		From: from,
 	}
 
-	if config.ProcurementType == "active" {
-		twoYearsAgo := time.Now().AddDate(-2, 0, 0)
-		searchRequest.Filters.PublicDate.MinValue = twoYearsAgo.Format("02.01.2006")
-	}
+	twoYearsAgo := time.Now().AddDate(-2, 0, 0)
+	searchRequest.Filters.PublicDate.MinValue = twoYearsAgo.Format("02.01.2006")
 
 	return searchRequest
 }

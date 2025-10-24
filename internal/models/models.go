@@ -39,7 +39,6 @@ type Config struct {
 	MinPriceBuild     int      `form:"min_price_build"`
 	MinPriceMetal     int      `form:"min_price_metal"`
 	VentCustomerPlace []string `form:"vent_customer_place"` // размещение для всех, не только вентиляции
-	VentDelKladrIds   []string `form:"vent_del_kladr_ids"`
 	ProcurementType   string   `form:"procurement_type"`
 }
 
@@ -126,7 +125,6 @@ func (c *Config) Bind(ctx *gin.Context) error {
 
 	// Обрабатываем массивы
 	c.VentCustomerPlace = ctx.PostFormArray("vent_customer_place")
-	c.VentDelKladrIds = ctx.PostFormArray("vent_del_kladr_ids")
 
 	c.ProcurementType = ctx.PostForm("procurement_type")
 	return nil

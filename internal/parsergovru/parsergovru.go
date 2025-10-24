@@ -200,6 +200,7 @@ func (p *Parser) parseTenderCard(name string, s *goquery.Selection, re *regexp.R
 	// logger.SugaredLogger.Debugf(s.Text())
 
 	if re.MatchString(strings.ToLower(tender.Title)) {
+		logger.SugaredLogger.Debugf("%s: отменено: %s", name, tender.Title)
 		return models.Tender{}
 	}
 
@@ -316,7 +317,6 @@ func createUrl(config models.Config, searchText string, minPrice int) string {
 		AddParam("fz223", "on").
 		AddParam("ppRf615", "on").
 		AddArrayParam("customerPlace", config.VentCustomerPlace).
-		AddArrayParam("delKladrIds", config.VentDelKladrIds).
 		AddParam("gws", "Выберите тип закупки").
 		// AddParam("publishDateFrom", "01.10.2025").
 		AddParam("applSubmissionCloseDateFrom", dateString).

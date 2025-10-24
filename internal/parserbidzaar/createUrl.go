@@ -30,7 +30,7 @@ func CreateUrl(config models.Config, name string, minPrice int) string {
 		AddParam("filters[1].value", getNameFilter(name)).
 		AddParam("filters[0].operator", "any").
 		AddParam("filters[0].field", "deliveryAddresses.search").
-		AddParam("filters[0].value", getRegionsFromFederalDistricts(config.VentDelKladrIds))
+		AddParam("filters[0].value", getRegionsFromFederalDistricts(config.VentCustomerPlace))
 
 	return url.Build()
 }

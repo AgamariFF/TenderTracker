@@ -23,10 +23,6 @@ type parseResult struct {
 
 func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var doSber, doZakupki bool
-		doSber = true
-		doZakupki = true
-
 		logger.SugaredLogger.Infof("Starting search tenders.")
 		allTenders := &models.TendersFromAllSites{}
 		config := &models.Config{}
@@ -40,32 +36,78 @@ func searchTenders(re *regexp.Regexp) gin.HandlerFunc {
 			return
 		}
 
-		var statsSber map[string]int
-		var statsZakupkiGovRu map[string]int
-		var err error
-		var errors []error
-
 		logger.SugaredLogger.Infof("config: %+v", config)
 
-		if doZakupki {
+		var wg sync.WaitGroup
+		var mu sync.Mutex
 
-			allTenders.ZakupkiGovRu, statsZakupkiGovRu, err = SearchFromZakupkigovru(re, config)
-			if err != nil {
-				logger.SugaredLogger.Warn(err)
-				errors = append(errors, err)
-			}
-		}
+		var statsSber, statsZakupkiGovRu map[string]int
+		var tendersSber, tendersZakupki models.AllTenders
+		var errors []error
 
-		if doSber {
-			allTenders.ZakupkiSber, statsSber, err = SearchFromSber(re, config)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			logger.SugaredLogger.Info("Starting Zakupki.gov.ru search...")
+
+			tenders, stats, err := SearchFromZakupkigovru(re, config)
+
+			mu.Lock()
+			defer mu.Unlock()
+
 			if err != nil {
-				logger.SugaredLogger.Warn(err)
+				logger.SugaredLogger.Warnf("Zakupki.gov.ru search error: %v", err)
 				errors = append(errors, err)
+			} else {
+				tendersZakupki = tenders
+				statsZakupkiGovRu = stats
+				logger.SugaredLogger.Infof("Zakupki.gov.ru search completed")
 			}
-		}
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			logger.SugaredLogger.Info("Starting Sber-AST search...")
+
+			tenders, stats, err := SearchFromSber(re, config)
+
+			mu.Lock()
+			defer mu.Unlock()
+
+			if err != nil {
+				logger.SugaredLogger.Warnf("Sber-AST search error: %v", err)
+				errors = append(errors, err)
+			} else {
+				tendersSber = tenders
+				statsSber = stats
+				logger.SugaredLogger.Infof("Sber-AST search completed")
+			}
+		}()
+
+		wg.Wait()
+
+		allTenders.ZakupkiGovRu = tendersZakupki
+		allTenders.ZakupkiSber = tendersSber
 
 		stats := mergeMaps(statsSber, statsZakupkiGovRu)
-		stats["totalFound"] = statsZakupkiGovRu["totalFoundZakupkiGovRu"] + statsSber["totalFoundSber"]
+
+		totalZakupki := 0
+		totalSber := 0
+
+		if statsZakupkiGovRu != nil {
+			totalZakupki = statsZakupkiGovRu["totalFoundZakupkiGovRu"]
+		}
+		if statsSber != nil {
+			totalSber = statsSber["totalFoundSber"]
+		}
+
+		stats["totalFound"] = totalZakupki + totalSber
+		stats["totalFoundZakupkiGovRu"] = totalZakupki
+		stats["totalFoundSber"] = totalSber
+
+		logger.SugaredLogger.Infof("Search completed. Total found: %d (Zakupki: %d, Sber: %d)",
+			stats["totalFound"], totalZakupki, totalSber)
 
 		file, err := excel.ToExcel(*config, allTenders)
 		if err != nil {
