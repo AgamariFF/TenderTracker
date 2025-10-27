@@ -31,7 +31,6 @@ func InitLogger(level string) {
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
 
-	// Уровень логирования
 	var logLevel zapcore.Level
 	switch level {
 	case "debug":

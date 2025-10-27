@@ -181,16 +181,33 @@ func (p *Parser) ParsePage(name, url string, re *regexp.Regexp, config *models.C
 	var tenders []models.Tender
 	totalCards := doc.Find(".search-registry-entry-block").Length()
 
+	var cards []*goquery.Selection
 	doc.Find(".search-registry-entry-block").Each(func(i int, s *goquery.Selection) {
-		tender := p.parseTenderCard(name, s, re, config)
-		if tender.Title != "" {
-			tenders = append(tenders, tender)
-		}
+		cards = append(cards, s)
 	})
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	for _, card := range cards {
+		wg.Add(1)
+
+		go func(s *goquery.Selection) {
+			defer wg.Done()
+
+			tender := p.parseTenderCard(name, s, re, config)
+			if tender.Title != "" {
+				mu.Lock()
+				tenders = append(tenders, tender)
+				mu.Unlock()
+			}
+		}(card)
+	}
+
+	wg.Wait()
 
 	return tenders, totalCards, nil
 }
-
 func (p *Parser) parseTenderCard(name string, s *goquery.Selection, re *regexp.Regexp, config *models.Config) models.Tender {
 	var tender models.Tender
 
@@ -284,7 +301,57 @@ func (p *Parser) parseTenderCard(name string, s *goquery.Selection, re *regexp.R
 		tender.EndDate = strings.TrimSpace(applicationEnd.Text())
 	}
 
+	//Адрес
+	tender.Region = NewParser().parsePlace(tender.Link)
+
 	return tender
+}
+
+func (p *Parser) parsePlace(url string) string {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		logger.SugaredLogger.Errorf("ошибка создания запроса: %v", err)
+		return ""
+	}
+
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "ru-RU,ru;q=0.9,en;q=0.8")
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		logger.SugaredLogger.Errorf("ошибка отправки запроса: %v", err)
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		logger.SugaredLogger.Errorf("неверный статус код: %d", resp.StatusCode)
+		return ""
+	}
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		logger.SugaredLogger.Errorf("ошибка парсинга HTML: %v", err)
+		return ""
+	}
+
+	place := doc.Find(".blockInfo__section .section__info").FilterFunction(func(i int, s *goquery.Selection) bool {
+		// Проверяем, что предыдущий элемент содержит заголовок "Место нахождения"
+		title := s.Prev().Find(".section__title").Text()
+		return strings.Contains(title, "Место нахождения")
+	}).First()
+
+	if place.Length() == 0 {
+		// Альтернативный поиск, если структура немного отличается
+		place = doc.Find("section:contains('Место нахождения') .section__info").First()
+	}
+
+	if place.Length() > 0 {
+		return strings.TrimSpace(place.Text())
+	}
+
+	return ""
 }
 
 func mergeTendersWithoutDuplicates(tenderSlices ...[]models.Tender) []models.Tender {
