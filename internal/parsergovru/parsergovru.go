@@ -374,7 +374,7 @@ func createUrl(config models.Config, searchText string, minPrice int) string {
 	encoder := urlgen.NewURLEncoder("https://zakupki.gov.ru/epz/order/extendedsearch/results.html")
 
 	now := time.Now()
-	twoYearsAgo := now.AddDate(-2, 0, 0)
+	twoYearsAgo := now.AddDate(-1, 0, 0)
 	dateString := twoYearsAgo.Format("02.01.2006")
 
 	url := encoder.

@@ -12,7 +12,7 @@ func CreateUrl(config models.Config, name string, minPrice int) string {
 	encoder := urlgen.NewURLEncoder("https://bidzaar.com/requests/public/buy")
 
 	now := time.Now()
-	twoYearsAgo := now.AddDate(-2, 0, 0)
+	twoYearsAgo := now.AddDate(-1, 0, 0)
 	dateString := twoYearsAgo.Format("2006-01-02T15:04:05-07:00")
 
 	url := encoder.
